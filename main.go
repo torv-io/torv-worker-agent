@@ -24,23 +24,31 @@ func main() {
 	client := pb.NewAgentServiceClient(conn)
 	ctx := context.Background()
 
-	r, err := client.Message(ctx, &pb.AgentRequest{
-		Type: pb.RequestType_REQUEST_TYPE_REGISTER,
-		Body: &pb.AgentRequest_Register{Register: &pb.RegisterBody{Secret: secret, Address: addr}},
-	})
-	if err != nil {
-		log.Fatalf("register: %v", err)
-	}
-	if !r.GetRegister().GetSuccess() {
-		log.Fatalf("register: %s", r.GetRegister().GetError())
-	}
-	workerID := r.GetRegister().GetWorkerId()
-	log.Printf("registered: %s", workerID)
-
 	stream, err := client.Subscribe(ctx)
 	if err != nil {
 		log.Fatalf("subscribe: %v", err)
 	}
+	if err := stream.Send(&pb.AgentRequest{
+		Type: pb.RequestType_REQUEST_TYPE_REGISTER,
+		Body: &pb.AgentRequest_Register{Register: &pb.RegisterBody{Secret: secret, Address: addr}},
+	}); err != nil {
+		log.Fatalf("register send: %v", err)
+	}
+
+	r, err := stream.Recv()
+	if err != nil {
+		log.Fatalf("register recv: %v", err)
+	}
+	if r.GetRegister() == nil || !r.GetRegister().GetSuccess() {
+		errMsg := "unknown error"
+		if r.GetRegister() != nil {
+			errMsg = r.GetRegister().GetError()
+		}
+		log.Fatalf("register: %s", errMsg)
+	}
+	workerID := r.GetRegister().GetWorkerId()
+	log.Printf("registered: %s", workerID)
+
 	if err := stream.Send(&pb.AgentRequest{
 		Type: pb.RequestType_REQUEST_TYPE_SUBSCRIBE,
 		Body: &pb.AgentRequest_Subscribe{Subscribe: &pb.SubscribeBody{WorkerId: workerID}},
