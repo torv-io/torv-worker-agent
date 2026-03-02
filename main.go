@@ -1,11 +1,20 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "torv.io/worker-agent/proto"
@@ -13,18 +22,20 @@ import (
 
 func main() {
 	orch := getEnv("ORCHESTRATOR_URL", "torv.io:50052")
+	orchHTTP := getEnv("ORCHESTRATOR_HTTP_URL", "http://torv.io:3000")
 	secret := getEnv("WORKER_SECRET", "")
 	addr := getEnv("WORKER_ADDRESS", "pipe-worker-agent:50051")
+	nodeImage := getEnv("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:latest")
 
 	conn, err := grpc.NewClient(orch, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}
 	defer conn.Close()
-	client := pb.NewAgentServiceClient(conn)
+	agentClient := pb.NewAgentServiceClient(conn)
 	ctx := context.Background()
 
-	stream, err := client.Subscribe(ctx)
+	stream, err := agentClient.Subscribe(ctx)
 	if err != nil {
 		log.Fatalf("subscribe: %v", err)
 	}
@@ -56,10 +67,16 @@ func main() {
 		log.Fatalf("subscribe send: %v", err)
 	}
 
+	var statusMu sync.Mutex
+	workerStatus := "idle"
+
 	go func() {
 		tick := time.NewTicker(10 * time.Second)
 		for range tick.C {
-			hb := &pb.HeartbeatBody{WorkerId: workerID, Status: "idle"}
+			statusMu.Lock()
+			s := workerStatus
+			statusMu.Unlock()
+			hb := &pb.HeartbeatBody{WorkerId: workerID, Status: s}
 			if err := stream.Send(&pb.AgentRequest{
 				Type: pb.RequestType_REQUEST_TYPE_HEARTBEAT,
 				Body: &pb.AgentRequest_Heartbeat{Heartbeat: hb},
@@ -77,10 +94,159 @@ func main() {
 		}
 		if w := resp.GetWorkItem(); w != nil {
 			log.Printf("work_item: stage_id=%s stage_run_id=%s", w.StageId, w.StageRunId)
+			statusMu.Lock()
+			workerStatus = "busy"
+			statusMu.Unlock()
+
+			go func(stageID, stageRunID string) {
+				if err := runStage(ctx, stream, workerID, stageRunID, orchHTTP, secret, nodeImage); err != nil {
+					log.Printf("run_stage %s: %v", stageRunID, err)
+				}
+				statusMu.Lock()
+				workerStatus = "idle"
+				statusMu.Unlock()
+			}(w.StageId, w.StageRunId)
 		} else {
 			log.Printf("message: %v", resp)
 		}
 	}
+}
+
+func runStage(ctx context.Context, stream pb.AgentService_SubscribeClient, workerID, stageRunID, orchHTTP, secret, nodeImage string) error {
+	req, _ := http.NewRequestWithContext(ctx, "GET", orchHTTP+"/api/agent/stage-run-payload/"+stageRunID, nil)
+	req.Header.Set("X-Worker-Secret", secret)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		sendFinish(stream, workerID, stageRunID, 1, err.Error(), nil)
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		sendFinish(stream, workerID, stageRunID, 1, "payload fetch failed: "+resp.Status, nil)
+		return nil
+	}
+
+	var payload struct {
+		Code        string `json:"code"`
+		Context     string `json:"context"`
+		StageConfig string `json:"stageConfig"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		sendFinish(stream, workerID, stageRunID, 1, "payload decode: "+err.Error(), nil)
+		return err
+	}
+
+	stream.Send(&pb.AgentRequest{
+		Type: pb.RequestType_REQUEST_TYPE_STAGE_START,
+		Body: &pb.AgentRequest_StageStart{StageStart: &pb.StageStartBody{WorkerId: workerID, StageRunId: stageRunID}},
+	})
+
+	exitCode, outputs, runErr := runNodeWorker(ctx, nodeImage, payload.Code, payload.Context, payload.StageConfig)
+
+	var errMsg string
+	if runErr != nil {
+		errMsg = runErr.Error()
+	}
+	if exitCode != 0 && errMsg == "" {
+		errMsg = "stage execution failed"
+	}
+
+	sendFinish(stream, workerID, stageRunID, exitCode, errMsg, outputs)
+	return runErr
+}
+
+func runNodeWorker(ctx context.Context, image, code, contextJSON, stageConfig string) (int, map[string]string, error) {
+	payload := map[string]string{"code": code, "context": contextJSON, "stageConfig": stageConfig}
+	payloadBytes, _ := json.Marshal(payload)
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return 1, nil, err
+	}
+	defer cli.Close()
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image:       image,
+		AttachStdin: true,
+		AttachStdout: true,
+		AttachStderr: true,
+		OpenStdin:   true,
+		StdinOnce:   true,
+	}, &container.HostConfig{
+		AutoRemove: true,
+	}, nil, nil, "")
+	if err != nil {
+		return 1, nil, err
+	}
+
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return 1, nil, err
+	}
+
+	attach, err := cli.ContainerAttach(ctx, resp.ID, container.AttachOptions{
+		Stream: true,
+		Stdin:  true,
+		Stdout: true,
+		Stderr: true,
+	})
+	if err != nil {
+		return 1, nil, err
+	}
+	defer attach.Close()
+
+	attach.Conn.Write(payloadBytes)
+	attach.Conn.Close()
+
+	var outBuf bytes.Buffer
+	go stdcopy.StdCopy(&outBuf, io.Discard, attach.Reader)
+
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	var exitCode int
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return 1, nil, err
+		}
+	case st := <-statusCh:
+		exitCode = int(st.StatusCode)
+	}
+
+	outputs := make(map[string]string)
+	scanner := bufio.NewScanner(&outBuf)
+	for scanner.Scan() {
+		var line struct {
+			Type    string            `json:"type"`
+			Success bool              `json:"success"`
+			Outputs map[string]string `json:"outputs"`
+			Error   string            `json:"error"`
+		}
+		if json.Unmarshal(scanner.Bytes(), &line) == nil && line.Type == "result" {
+			if line.Outputs != nil {
+				outputs = line.Outputs
+			}
+			break
+		}
+	}
+
+	return exitCode, outputs, nil
+}
+
+func sendFinish(stream pb.AgentService_SubscribeClient, workerID, stageRunID string, status int, errMsg string, outputs map[string]string) {
+	out := outputs
+	if out == nil {
+		out = make(map[string]string)
+	}
+	stream.Send(&pb.AgentRequest{
+		Type: pb.RequestType_REQUEST_TYPE_STAGE_FINISH,
+		Body: &pb.AgentRequest_StageFinish{
+			StageFinish: &pb.StageFinishBody{
+				StageRunId: stageRunID,
+				Status:     int32(status),
+				Error:      errMsg,
+				Outputs:    out,
+			},
+		},
+	})
 }
 
 func getEnv(k, d string) string {
