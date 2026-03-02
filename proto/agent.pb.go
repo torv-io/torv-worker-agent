@@ -24,14 +24,13 @@ const (
 type RequestType int32
 
 const (
-	RequestType_REQUEST_TYPE_UNSPECIFIED       RequestType = 0
-	RequestType_REQUEST_TYPE_REGISTER          RequestType = 1
-	RequestType_REQUEST_TYPE_HEARTBEAT         RequestType = 2
-	RequestType_REQUEST_TYPE_STAGE_RUN_MESSAGE RequestType = 3
-	RequestType_REQUEST_TYPE_SUBSCRIBE         RequestType = 4
-	RequestType_REQUEST_TYPE_STAGE_START       RequestType = 5
-	RequestType_REQUEST_TYPE_STAGE_FINISH      RequestType = 6
-	RequestType_REQUEST_TYPE_STAGE_MESSAGE     RequestType = 7
+	RequestType_REQUEST_TYPE_UNSPECIFIED         RequestType = 0
+	RequestType_REQUEST_TYPE_REGISTER            RequestType = 1
+	RequestType_REQUEST_TYPE_HEARTBEAT           RequestType = 2
+	RequestType_REQUEST_TYPE_STAGE_RUN_MESSAGE   RequestType = 3
+	RequestType_REQUEST_TYPE_SUBSCRIBE           RequestType = 4
+	RequestType_REQUEST_TYPE_HANDLE_STAGE_START  RequestType = 5
+	RequestType_REQUEST_TYPE_HANDLE_STAGE_FINISH RequestType = 6
 )
 
 // Enum value maps for RequestType.
@@ -42,19 +41,17 @@ var (
 		2: "REQUEST_TYPE_HEARTBEAT",
 		3: "REQUEST_TYPE_STAGE_RUN_MESSAGE",
 		4: "REQUEST_TYPE_SUBSCRIBE",
-		5: "REQUEST_TYPE_STAGE_START",
-		6: "REQUEST_TYPE_STAGE_FINISH",
-		7: "REQUEST_TYPE_STAGE_MESSAGE",
+		5: "REQUEST_TYPE_HANDLE_STAGE_START",
+		6: "REQUEST_TYPE_HANDLE_STAGE_FINISH",
 	}
 	RequestType_value = map[string]int32{
-		"REQUEST_TYPE_UNSPECIFIED":       0,
-		"REQUEST_TYPE_REGISTER":          1,
-		"REQUEST_TYPE_HEARTBEAT":         2,
-		"REQUEST_TYPE_STAGE_RUN_MESSAGE": 3,
-		"REQUEST_TYPE_SUBSCRIBE":         4,
-		"REQUEST_TYPE_STAGE_START":       5,
-		"REQUEST_TYPE_STAGE_FINISH":      6,
-		"REQUEST_TYPE_STAGE_MESSAGE":     7,
+		"REQUEST_TYPE_UNSPECIFIED":         0,
+		"REQUEST_TYPE_REGISTER":            1,
+		"REQUEST_TYPE_HEARTBEAT":           2,
+		"REQUEST_TYPE_STAGE_RUN_MESSAGE":   3,
+		"REQUEST_TYPE_SUBSCRIBE":           4,
+		"REQUEST_TYPE_HANDLE_STAGE_START":  5,
+		"REQUEST_TYPE_HANDLE_STAGE_FINISH": 6,
 	}
 )
 
@@ -146,9 +143,8 @@ type AgentRequest struct {
 	//	*AgentRequest_Heartbeat
 	//	*AgentRequest_StageRunMessage
 	//	*AgentRequest_Subscribe
-	//	*AgentRequest_StageStart
-	//	*AgentRequest_StageFinish
-	//	*AgentRequest_StageMessage
+	//	*AgentRequest_HandleStageStart
+	//	*AgentRequest_HandleStageFinish
 	Body          isAgentRequest_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -234,28 +230,19 @@ func (x *AgentRequest) GetSubscribe() *SubscribeBody {
 	return nil
 }
 
-func (x *AgentRequest) GetStageStart() *StageStartBody {
+func (x *AgentRequest) GetHandleStageStart() *HandleStageStartBody {
 	if x != nil {
-		if x, ok := x.Body.(*AgentRequest_StageStart); ok {
-			return x.StageStart
+		if x, ok := x.Body.(*AgentRequest_HandleStageStart); ok {
+			return x.HandleStageStart
 		}
 	}
 	return nil
 }
 
-func (x *AgentRequest) GetStageFinish() *StageFinishBody {
+func (x *AgentRequest) GetHandleStageFinish() *HandleStageFinishBody {
 	if x != nil {
-		if x, ok := x.Body.(*AgentRequest_StageFinish); ok {
-			return x.StageFinish
-		}
-	}
-	return nil
-}
-
-func (x *AgentRequest) GetStageMessage() *StageMessageBody {
-	if x != nil {
-		if x, ok := x.Body.(*AgentRequest_StageMessage); ok {
-			return x.StageMessage
+		if x, ok := x.Body.(*AgentRequest_HandleStageFinish); ok {
+			return x.HandleStageFinish
 		}
 	}
 	return nil
@@ -281,16 +268,12 @@ type AgentRequest_Subscribe struct {
 	Subscribe *SubscribeBody `protobuf:"bytes,5,opt,name=subscribe,proto3,oneof"`
 }
 
-type AgentRequest_StageStart struct {
-	StageStart *StageStartBody `protobuf:"bytes,6,opt,name=stage_start,json=stageStart,proto3,oneof"`
+type AgentRequest_HandleStageStart struct {
+	HandleStageStart *HandleStageStartBody `protobuf:"bytes,6,opt,name=handle_stage_start,json=handleStageStart,proto3,oneof"`
 }
 
-type AgentRequest_StageFinish struct {
-	StageFinish *StageFinishBody `protobuf:"bytes,7,opt,name=stage_finish,json=stageFinish,proto3,oneof"`
-}
-
-type AgentRequest_StageMessage struct {
-	StageMessage *StageMessageBody `protobuf:"bytes,8,opt,name=stage_message,json=stageMessage,proto3,oneof"`
+type AgentRequest_HandleStageFinish struct {
+	HandleStageFinish *HandleStageFinishBody `protobuf:"bytes,7,opt,name=handle_stage_finish,json=handleStageFinish,proto3,oneof"`
 }
 
 func (*AgentRequest_Register) isAgentRequest_Body() {}
@@ -301,11 +284,9 @@ func (*AgentRequest_StageRunMessage) isAgentRequest_Body() {}
 
 func (*AgentRequest_Subscribe) isAgentRequest_Body() {}
 
-func (*AgentRequest_StageStart) isAgentRequest_Body() {}
+func (*AgentRequest_HandleStageStart) isAgentRequest_Body() {}
 
-func (*AgentRequest_StageFinish) isAgentRequest_Body() {}
-
-func (*AgentRequest_StageMessage) isAgentRequest_Body() {}
+func (*AgentRequest_HandleStageFinish) isAgentRequest_Body() {}
 
 type RegisterBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -479,6 +460,134 @@ func (x *StageRunMessageBody) GetLevel() string {
 	return ""
 }
 
+type HandleStageStartBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	StageRunId    string                 `protobuf:"bytes,2,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleStageStartBody) Reset() {
+	*x = HandleStageStartBody{}
+	mi := &file_proto_agent_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleStageStartBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleStageStartBody) ProtoMessage() {}
+
+func (x *HandleStageStartBody) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agent_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleStageStartBody.ProtoReflect.Descriptor instead.
+func (*HandleStageStartBody) Descriptor() ([]byte, []int) {
+	return file_proto_agent_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *HandleStageStartBody) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *HandleStageStartBody) GetStageRunId() string {
+	if x != nil {
+		return x.StageRunId
+	}
+	return ""
+}
+
+func (x *HandleStageStartBody) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type HandleStageFinishBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StageRunId    string                 `protobuf:"bytes,1,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Outputs       map[string]string      `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleStageFinishBody) Reset() {
+	*x = HandleStageFinishBody{}
+	mi := &file_proto_agent_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleStageFinishBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleStageFinishBody) ProtoMessage() {}
+
+func (x *HandleStageFinishBody) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_agent_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleStageFinishBody.ProtoReflect.Descriptor instead.
+func (*HandleStageFinishBody) Descriptor() ([]byte, []int) {
+	return file_proto_agent_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *HandleStageFinishBody) GetStageRunId() string {
+	if x != nil {
+		return x.StageRunId
+	}
+	return ""
+}
+
+func (x *HandleStageFinishBody) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *HandleStageFinishBody) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *HandleStageFinishBody) GetOutputs() map[string]string {
+	if x != nil {
+		return x.Outputs
+	}
+	return nil
+}
+
 type SubscribeBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
@@ -488,7 +597,7 @@ type SubscribeBody struct {
 
 func (x *SubscribeBody) Reset() {
 	*x = SubscribeBody{}
-	mi := &file_proto_agent_proto_msgTypes[4]
+	mi := &file_proto_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -500,7 +609,7 @@ func (x *SubscribeBody) String() string {
 func (*SubscribeBody) ProtoMessage() {}
 
 func (x *SubscribeBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[4]
+	mi := &file_proto_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -513,208 +622,12 @@ func (x *SubscribeBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeBody.ProtoReflect.Descriptor instead.
 func (*SubscribeBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{4}
+	return file_proto_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SubscribeBody) GetWorkerId() string {
 	if x != nil {
 		return x.WorkerId
-	}
-	return ""
-}
-
-type StageStartBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	StageRunId    string                 `protobuf:"bytes,2,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StageStartBody) Reset() {
-	*x = StageStartBody{}
-	mi := &file_proto_agent_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StageStartBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StageStartBody) ProtoMessage() {}
-
-func (x *StageStartBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StageStartBody.ProtoReflect.Descriptor instead.
-func (*StageStartBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *StageStartBody) GetWorkerId() string {
-	if x != nil {
-		return x.WorkerId
-	}
-	return ""
-}
-
-func (x *StageStartBody) GetStageRunId() string {
-	if x != nil {
-		return x.StageRunId
-	}
-	return ""
-}
-
-type StageFinishBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	StageRunId    string                 `protobuf:"bytes,2,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`
-	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	Outputs       map[string]string      `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StageFinishBody) Reset() {
-	*x = StageFinishBody{}
-	mi := &file_proto_agent_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StageFinishBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StageFinishBody) ProtoMessage() {}
-
-func (x *StageFinishBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StageFinishBody.ProtoReflect.Descriptor instead.
-func (*StageFinishBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *StageFinishBody) GetWorkerId() string {
-	if x != nil {
-		return x.WorkerId
-	}
-	return ""
-}
-
-func (x *StageFinishBody) GetStageRunId() string {
-	if x != nil {
-		return x.StageRunId
-	}
-	return ""
-}
-
-func (x *StageFinishBody) GetStatus() int32 {
-	if x != nil {
-		return x.Status
-	}
-	return 0
-}
-
-func (x *StageFinishBody) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
-func (x *StageFinishBody) GetOutputs() map[string]string {
-	if x != nil {
-		return x.Outputs
-	}
-	return nil
-}
-
-type StageMessageBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	StageRunId    string                 `protobuf:"bytes,2,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	Level         string                 `protobuf:"bytes,4,opt,name=level,proto3" json:"level,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StageMessageBody) Reset() {
-	*x = StageMessageBody{}
-	mi := &file_proto_agent_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StageMessageBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StageMessageBody) ProtoMessage() {}
-
-func (x *StageMessageBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StageMessageBody.ProtoReflect.Descriptor instead.
-func (*StageMessageBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *StageMessageBody) GetWorkerId() string {
-	if x != nil {
-		return x.WorkerId
-	}
-	return ""
-}
-
-func (x *StageMessageBody) GetStageRunId() string {
-	if x != nil {
-		return x.StageRunId
-	}
-	return ""
-}
-
-func (x *StageMessageBody) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *StageMessageBody) GetLevel() string {
-	if x != nil {
-		return x.Level
 	}
 	return ""
 }
@@ -735,7 +648,7 @@ type AgentResponse struct {
 
 func (x *AgentResponse) Reset() {
 	*x = AgentResponse{}
-	mi := &file_proto_agent_proto_msgTypes[8]
+	mi := &file_proto_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -747,7 +660,7 @@ func (x *AgentResponse) String() string {
 func (*AgentResponse) ProtoMessage() {}
 
 func (x *AgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[8]
+	mi := &file_proto_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -760,7 +673,7 @@ func (x *AgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentResponse.ProtoReflect.Descriptor instead.
 func (*AgentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{8}
+	return file_proto_agent_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *AgentResponse) GetType() ResponseType {
@@ -852,7 +765,7 @@ type RegisterResponseBody struct {
 
 func (x *RegisterResponseBody) Reset() {
 	*x = RegisterResponseBody{}
-	mi := &file_proto_agent_proto_msgTypes[9]
+	mi := &file_proto_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -864,7 +777,7 @@ func (x *RegisterResponseBody) String() string {
 func (*RegisterResponseBody) ProtoMessage() {}
 
 func (x *RegisterResponseBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[9]
+	mi := &file_proto_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -877,7 +790,7 @@ func (x *RegisterResponseBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponseBody.ProtoReflect.Descriptor instead.
 func (*RegisterResponseBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{9}
+	return file_proto_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RegisterResponseBody) GetSuccess() bool {
@@ -911,7 +824,7 @@ type HeartbeatResponseBody struct {
 
 func (x *HeartbeatResponseBody) Reset() {
 	*x = HeartbeatResponseBody{}
-	mi := &file_proto_agent_proto_msgTypes[10]
+	mi := &file_proto_agent_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +836,7 @@ func (x *HeartbeatResponseBody) String() string {
 func (*HeartbeatResponseBody) ProtoMessage() {}
 
 func (x *HeartbeatResponseBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[10]
+	mi := &file_proto_agent_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +849,7 @@ func (x *HeartbeatResponseBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponseBody.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponseBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{10}
+	return file_proto_agent_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *HeartbeatResponseBody) GetSuccess() bool {
@@ -962,7 +875,7 @@ type StageRunMessageResponseBody struct {
 
 func (x *StageRunMessageResponseBody) Reset() {
 	*x = StageRunMessageResponseBody{}
-	mi := &file_proto_agent_proto_msgTypes[11]
+	mi := &file_proto_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -974,7 +887,7 @@ func (x *StageRunMessageResponseBody) String() string {
 func (*StageRunMessageResponseBody) ProtoMessage() {}
 
 func (x *StageRunMessageResponseBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[11]
+	mi := &file_proto_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -987,7 +900,7 @@ func (x *StageRunMessageResponseBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StageRunMessageResponseBody.ProtoReflect.Descriptor instead.
 func (*StageRunMessageResponseBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{11}
+	return file_proto_agent_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StageRunMessageResponseBody) GetSuccess() bool {
@@ -1001,16 +914,13 @@ type WorkItemBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StageId       string                 `protobuf:"bytes,1,opt,name=stage_id,json=stageId,proto3" json:"stage_id,omitempty"`
 	StageRunId    string                 `protobuf:"bytes,2,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	Code          string                 `protobuf:"bytes,3,opt,name=code,proto3" json:"code,omitempty"`
-	Context       string                 `protobuf:"bytes,4,opt,name=context,proto3" json:"context,omitempty"`
-	StageConfig   string                 `protobuf:"bytes,5,opt,name=stage_config,json=stageConfig,proto3" json:"stage_config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkItemBody) Reset() {
 	*x = WorkItemBody{}
-	mi := &file_proto_agent_proto_msgTypes[12]
+	mi := &file_proto_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +932,7 @@ func (x *WorkItemBody) String() string {
 func (*WorkItemBody) ProtoMessage() {}
 
 func (x *WorkItemBody) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_agent_proto_msgTypes[12]
+	mi := &file_proto_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +945,7 @@ func (x *WorkItemBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkItemBody.ProtoReflect.Descriptor instead.
 func (*WorkItemBody) Descriptor() ([]byte, []int) {
-	return file_proto_agent_proto_rawDescGZIP(), []int{12}
+	return file_proto_agent_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *WorkItemBody) GetStageId() string {
@@ -1052,42 +962,19 @@ func (x *WorkItemBody) GetStageRunId() string {
 	return ""
 }
 
-func (x *WorkItemBody) GetCode() string {
-	if x != nil {
-		return x.Code
-	}
-	return ""
-}
-
-func (x *WorkItemBody) GetContext() string {
-	if x != nil {
-		return x.Context
-	}
-	return ""
-}
-
-func (x *WorkItemBody) GetStageConfig() string {
-	if x != nil {
-		return x.StageConfig
-	}
-	return ""
-}
-
 var File_proto_agent_proto protoreflect.FileDescriptor
 
 const file_proto_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x11proto/agent.proto\x12\x05agent\"\xde\x03\n" +
+	"\x11proto/agent.proto\x12\x05agent\"\xc4\x03\n" +
 	"\fAgentRequest\x12&\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x12.agent.RequestTypeR\x04type\x121\n" +
 	"\bregister\x18\x02 \x01(\v2\x13.agent.RegisterBodyH\x00R\bregister\x124\n" +
 	"\theartbeat\x18\x03 \x01(\v2\x14.agent.HeartbeatBodyH\x00R\theartbeat\x12H\n" +
 	"\x11stage_run_message\x18\x04 \x01(\v2\x1a.agent.StageRunMessageBodyH\x00R\x0fstageRunMessage\x124\n" +
-	"\tsubscribe\x18\x05 \x01(\v2\x14.agent.SubscribeBodyH\x00R\tsubscribe\x128\n" +
-	"\vstage_start\x18\x06 \x01(\v2\x15.agent.StageStartBodyH\x00R\n" +
-	"stageStart\x12;\n" +
-	"\fstage_finish\x18\a \x01(\v2\x16.agent.StageFinishBodyH\x00R\vstageFinish\x12>\n" +
-	"\rstage_message\x18\b \x01(\v2\x17.agent.StageMessageBodyH\x00R\fstageMessageB\x06\n" +
+	"\tsubscribe\x18\x05 \x01(\v2\x14.agent.SubscribeBodyH\x00R\tsubscribe\x12K\n" +
+	"\x12handle_stage_start\x18\x06 \x01(\v2\x1b.agent.HandleStageStartBodyH\x00R\x10handleStageStart\x12N\n" +
+	"\x13handle_stage_finish\x18\a \x01(\v2\x1c.agent.HandleStageFinishBodyH\x00R\x11handleStageFinishB\x06\n" +
 	"\x04body\"@\n" +
 	"\fRegisterBody\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x18\n" +
@@ -1100,29 +987,23 @@ const file_proto_agent_proto_rawDesc = "" +
 	"\fstage_run_id\x18\x02 \x01(\tR\n" +
 	"stageRunId\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12\x14\n" +
-	"\x05level\x18\x04 \x01(\tR\x05level\",\n" +
-	"\rSubscribeBody\x12\x1b\n" +
-	"\tworker_id\x18\x01 \x01(\tR\bworkerId\"O\n" +
-	"\x0eStageStartBody\x12\x1b\n" +
-	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12 \n" +
-	"\fstage_run_id\x18\x02 \x01(\tR\n" +
-	"stageRunId\"\xf9\x01\n" +
-	"\x0fStageFinishBody\x12\x1b\n" +
-	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12 \n" +
-	"\fstage_run_id\x18\x02 \x01(\tR\n" +
-	"stageRunId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\x05R\x06status\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\x12=\n" +
-	"\aoutputs\x18\x05 \x03(\v2#.agent.StageFinishBody.OutputsEntryR\aoutputs\x1a:\n" +
-	"\fOutputsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x81\x01\n" +
-	"\x10StageMessageBody\x12\x1b\n" +
+	"\x05level\x18\x04 \x01(\tR\x05level\"o\n" +
+	"\x14HandleStageStartBody\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12 \n" +
 	"\fstage_run_id\x18\x02 \x01(\tR\n" +
 	"stageRunId\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\x12\x14\n" +
-	"\x05level\x18\x04 \x01(\tR\x05level\"\xbf\x02\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xe8\x01\n" +
+	"\x15HandleStageFinishBody\x12 \n" +
+	"\fstage_run_id\x18\x01 \x01(\tR\n" +
+	"stageRunId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12C\n" +
+	"\aoutputs\x18\x04 \x03(\v2).agent.HandleStageFinishBody.OutputsEntryR\aoutputs\x1a:\n" +
+	"\fOutputsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\",\n" +
+	"\rSubscribeBody\x12\x1b\n" +
+	"\tworker_id\x18\x01 \x01(\tR\bworkerId\"\xbf\x02\n" +
 	"\rAgentResponse\x12'\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x13.agent.ResponseTypeR\x04type\x129\n" +
 	"\bregister\x18\x02 \x01(\v2\x1b.agent.RegisterResponseBodyH\x00R\bregister\x12<\n" +
@@ -1138,30 +1019,25 @@ const file_proto_agent_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12,\n" +
 	"\x12assigned_worker_id\x18\x02 \x01(\tR\x10assignedWorkerId\"7\n" +
 	"\x1bStageRunMessageResponseBody\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x9c\x01\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"K\n" +
 	"\fWorkItemBody\x12\x19\n" +
 	"\bstage_id\x18\x01 \x01(\tR\astageId\x12 \n" +
 	"\fstage_run_id\x18\x02 \x01(\tR\n" +
-	"stageRunId\x12\x12\n" +
-	"\x04code\x18\x03 \x01(\tR\x04code\x12\x18\n" +
-	"\acontext\x18\x04 \x01(\tR\acontext\x12!\n" +
-	"\fstage_config\x18\x05 \x01(\tR\vstageConfig*\xff\x01\n" +
+	"stageRunId*\xed\x01\n" +
 	"\vRequestType\x12\x1c\n" +
 	"\x18REQUEST_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15REQUEST_TYPE_REGISTER\x10\x01\x12\x1a\n" +
 	"\x16REQUEST_TYPE_HEARTBEAT\x10\x02\x12\"\n" +
 	"\x1eREQUEST_TYPE_STAGE_RUN_MESSAGE\x10\x03\x12\x1a\n" +
-	"\x16REQUEST_TYPE_SUBSCRIBE\x10\x04\x12\x1c\n" +
-	"\x18REQUEST_TYPE_STAGE_START\x10\x05\x12\x1d\n" +
-	"\x19REQUEST_TYPE_STAGE_FINISH\x10\x06\x12\x1e\n" +
-	"\x1aREQUEST_TYPE_STAGE_MESSAGE\x10\a*\x89\x01\n" +
+	"\x16REQUEST_TYPE_SUBSCRIBE\x10\x04\x12#\n" +
+	"\x1fREQUEST_TYPE_HANDLE_STAGE_START\x10\x05\x12$\n" +
+	" REQUEST_TYPE_HANDLE_STAGE_FINISH\x10\x06*\x89\x01\n" +
 	"\fResponseType\x12\x1a\n" +
 	"\x16RESPONSE_TYPE_REGISTER\x10\x00\x12\x1b\n" +
 	"\x17RESPONSE_TYPE_HEARTBEAT\x10\x01\x12#\n" +
 	"\x1fRESPONSE_TYPE_STAGE_RUN_MESSAGE\x10\x02\x12\x1b\n" +
-	"\x17RESPONSE_TYPE_WORK_ITEM\x10\x032\x80\x01\n" +
-	"\fAgentService\x124\n" +
-	"\aMessage\x12\x13.agent.AgentRequest\x1a\x14.agent.AgentResponse\x12:\n" +
+	"\x17RESPONSE_TYPE_WORK_ITEM\x10\x032J\n" +
+	"\fAgentService\x12:\n" +
 	"\tSubscribe\x12\x13.agent.AgentRequest\x1a\x14.agent.AgentResponse(\x010\x01B\x1cZ\x1atorv.io/worker-agent/protob\x06proto3"
 
 var (
@@ -1177,7 +1053,7 @@ func file_proto_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_proto_agent_proto_goTypes = []any{
 	(RequestType)(0),                    // 0: agent.RequestType
 	(ResponseType)(0),                   // 1: agent.ResponseType
@@ -1185,41 +1061,37 @@ var file_proto_agent_proto_goTypes = []any{
 	(*RegisterBody)(nil),                // 3: agent.RegisterBody
 	(*HeartbeatBody)(nil),               // 4: agent.HeartbeatBody
 	(*StageRunMessageBody)(nil),         // 5: agent.StageRunMessageBody
-	(*SubscribeBody)(nil),               // 6: agent.SubscribeBody
-	(*StageStartBody)(nil),              // 7: agent.StageStartBody
-	(*StageFinishBody)(nil),             // 8: agent.StageFinishBody
-	(*StageMessageBody)(nil),            // 9: agent.StageMessageBody
-	(*AgentResponse)(nil),               // 10: agent.AgentResponse
-	(*RegisterResponseBody)(nil),        // 11: agent.RegisterResponseBody
-	(*HeartbeatResponseBody)(nil),       // 12: agent.HeartbeatResponseBody
-	(*StageRunMessageResponseBody)(nil), // 13: agent.StageRunMessageResponseBody
-	(*WorkItemBody)(nil),                // 14: agent.WorkItemBody
-	nil,                                 // 15: agent.StageFinishBody.OutputsEntry
+	(*HandleStageStartBody)(nil),        // 6: agent.HandleStageStartBody
+	(*HandleStageFinishBody)(nil),       // 7: agent.HandleStageFinishBody
+	(*SubscribeBody)(nil),               // 8: agent.SubscribeBody
+	(*AgentResponse)(nil),               // 9: agent.AgentResponse
+	(*RegisterResponseBody)(nil),        // 10: agent.RegisterResponseBody
+	(*HeartbeatResponseBody)(nil),       // 11: agent.HeartbeatResponseBody
+	(*StageRunMessageResponseBody)(nil), // 12: agent.StageRunMessageResponseBody
+	(*WorkItemBody)(nil),                // 13: agent.WorkItemBody
+	nil,                                 // 14: agent.HandleStageFinishBody.OutputsEntry
 }
 var file_proto_agent_proto_depIdxs = []int32{
 	0,  // 0: agent.AgentRequest.type:type_name -> agent.RequestType
 	3,  // 1: agent.AgentRequest.register:type_name -> agent.RegisterBody
 	4,  // 2: agent.AgentRequest.heartbeat:type_name -> agent.HeartbeatBody
 	5,  // 3: agent.AgentRequest.stage_run_message:type_name -> agent.StageRunMessageBody
-	6,  // 4: agent.AgentRequest.subscribe:type_name -> agent.SubscribeBody
-	7,  // 5: agent.AgentRequest.stage_start:type_name -> agent.StageStartBody
-	8,  // 6: agent.AgentRequest.stage_finish:type_name -> agent.StageFinishBody
-	9,  // 7: agent.AgentRequest.stage_message:type_name -> agent.StageMessageBody
-	15, // 8: agent.StageFinishBody.outputs:type_name -> agent.StageFinishBody.OutputsEntry
-	1,  // 9: agent.AgentResponse.type:type_name -> agent.ResponseType
-	11, // 10: agent.AgentResponse.register:type_name -> agent.RegisterResponseBody
-	12, // 11: agent.AgentResponse.heartbeat:type_name -> agent.HeartbeatResponseBody
-	13, // 12: agent.AgentResponse.stage_run_message:type_name -> agent.StageRunMessageResponseBody
-	14, // 13: agent.AgentResponse.work_item:type_name -> agent.WorkItemBody
-	2,  // 14: agent.AgentService.Message:input_type -> agent.AgentRequest
-	2,  // 15: agent.AgentService.Subscribe:input_type -> agent.AgentRequest
-	10, // 16: agent.AgentService.Message:output_type -> agent.AgentResponse
-	10, // 17: agent.AgentService.Subscribe:output_type -> agent.AgentResponse
-	16, // [16:18] is the sub-list for method output_type
-	14, // [14:16] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	8,  // 4: agent.AgentRequest.subscribe:type_name -> agent.SubscribeBody
+	6,  // 5: agent.AgentRequest.handle_stage_start:type_name -> agent.HandleStageStartBody
+	7,  // 6: agent.AgentRequest.handle_stage_finish:type_name -> agent.HandleStageFinishBody
+	14, // 7: agent.HandleStageFinishBody.outputs:type_name -> agent.HandleStageFinishBody.OutputsEntry
+	1,  // 8: agent.AgentResponse.type:type_name -> agent.ResponseType
+	10, // 9: agent.AgentResponse.register:type_name -> agent.RegisterResponseBody
+	11, // 10: agent.AgentResponse.heartbeat:type_name -> agent.HeartbeatResponseBody
+	12, // 11: agent.AgentResponse.stage_run_message:type_name -> agent.StageRunMessageResponseBody
+	13, // 12: agent.AgentResponse.work_item:type_name -> agent.WorkItemBody
+	2,  // 13: agent.AgentService.Subscribe:input_type -> agent.AgentRequest
+	9,  // 14: agent.AgentService.Subscribe:output_type -> agent.AgentResponse
+	14, // [14:15] is the sub-list for method output_type
+	13, // [13:14] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_proto_agent_proto_init() }
@@ -1232,11 +1104,10 @@ func file_proto_agent_proto_init() {
 		(*AgentRequest_Heartbeat)(nil),
 		(*AgentRequest_StageRunMessage)(nil),
 		(*AgentRequest_Subscribe)(nil),
-		(*AgentRequest_StageStart)(nil),
-		(*AgentRequest_StageFinish)(nil),
-		(*AgentRequest_StageMessage)(nil),
+		(*AgentRequest_HandleStageStart)(nil),
+		(*AgentRequest_HandleStageFinish)(nil),
 	}
-	file_proto_agent_proto_msgTypes[8].OneofWrappers = []any{
+	file_proto_agent_proto_msgTypes[7].OneofWrappers = []any{
 		(*AgentResponse_Register)(nil),
 		(*AgentResponse_Heartbeat)(nil),
 		(*AgentResponse_StageRunMessage)(nil),
@@ -1248,7 +1119,7 @@ func file_proto_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_agent_proto_rawDesc), len(file_proto_agent_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   14,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -25,7 +25,7 @@ func main() {
 	orchHTTP := getEnv("ORCHESTRATOR_HTTP_URL", "http://torv.io:3000")
 	secret := getEnv("WORKER_SECRET", "")
 	addr := getEnv("WORKER_ADDRESS", "pipe-worker-agent:50051")
-	nodeImage := getEnv("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:latest")
+	nodeImage := getEnv("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:main")
 
 	conn, err := grpc.NewClient(orch, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -68,7 +68,14 @@ func main() {
 	}
 
 	var statusMu sync.Mutex
+	var sendMu sync.Mutex
 	workerStatus := "idle"
+
+	sendReq := func(req *pb.AgentRequest) error {
+		sendMu.Lock()
+		defer sendMu.Unlock()
+		return stream.Send(req)
+	}
 
 	go func() {
 		tick := time.NewTicker(10 * time.Second)
@@ -77,7 +84,7 @@ func main() {
 			s := workerStatus
 			statusMu.Unlock()
 			hb := &pb.HeartbeatBody{WorkerId: workerID, Status: s}
-			if err := stream.Send(&pb.AgentRequest{
+			if err := sendReq(&pb.AgentRequest{
 				Type: pb.RequestType_REQUEST_TYPE_HEARTBEAT,
 				Body: &pb.AgentRequest_Heartbeat{Heartbeat: hb},
 			}); err != nil {
@@ -99,7 +106,7 @@ func main() {
 			statusMu.Unlock()
 
 			go func(stageID, stageRunID string) {
-				if err := runStage(ctx, stream, workerID, stageRunID, orchHTTP, secret, nodeImage); err != nil {
+				if err := runStage(ctx, stream, sendReq, workerID, stageRunID, orchHTTP, secret, nodeImage); err != nil {
 					log.Printf("run_stage %s: %v", stageRunID, err)
 				}
 				statusMu.Lock()
@@ -112,17 +119,19 @@ func main() {
 	}
 }
 
-func runStage(ctx context.Context, stream pb.AgentService_SubscribeClient, workerID, stageRunID, orchHTTP, secret, nodeImage string) error {
+type sendFunc func(*pb.AgentRequest) error
+
+func runStage(ctx context.Context, stream pb.AgentService_SubscribeClient, send sendFunc, workerID, stageRunID, orchHTTP, secret, nodeImage string) error {
 	req, _ := http.NewRequestWithContext(ctx, "GET", orchHTTP+"/api/agent/stage-run-payload/"+stageRunID, nil)
 	req.Header.Set("X-Worker-Secret", secret)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		sendFinish(stream, workerID, stageRunID, 1, err.Error(), nil)
+		sendFinish(send, workerID, stageRunID, 1, err.Error(), nil)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		sendFinish(stream, workerID, stageRunID, 1, "payload fetch failed: "+resp.Status, nil)
+		sendFinish(send, workerID, stageRunID, 1, "payload fetch failed: "+resp.Status, nil)
 		return nil
 	}
 
@@ -132,13 +141,13 @@ func runStage(ctx context.Context, stream pb.AgentService_SubscribeClient, worke
 		StageConfig string `json:"stageConfig"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		sendFinish(stream, workerID, stageRunID, 1, "payload decode: "+err.Error(), nil)
+		sendFinish(send, workerID, stageRunID, 1, "payload decode: "+err.Error(), nil)
 		return err
 	}
 
-	stream.Send(&pb.AgentRequest{
-		Type: pb.RequestType_REQUEST_TYPE_STAGE_START,
-		Body: &pb.AgentRequest_StageStart{StageStart: &pb.StageStartBody{WorkerId: workerID, StageRunId: stageRunID}},
+	send(&pb.AgentRequest{
+		Type: pb.RequestType_REQUEST_TYPE_HANDLE_STAGE_START,
+		Body: &pb.AgentRequest_HandleStageStart{HandleStageStart: &pb.HandleStageStartBody{WorkerId: workerID, StageRunId: stageRunID}},
 	})
 
 	exitCode, outputs, runErr := runNodeWorker(ctx, nodeImage, payload.Code, payload.Context, payload.StageConfig)
@@ -151,7 +160,7 @@ func runStage(ctx context.Context, stream pb.AgentService_SubscribeClient, worke
 		errMsg = "stage execution failed"
 	}
 
-	sendFinish(stream, workerID, stageRunID, exitCode, errMsg, outputs)
+	sendFinish(send, workerID, stageRunID, exitCode, errMsg, outputs)
 	return runErr
 }
 
@@ -231,15 +240,15 @@ func runNodeWorker(ctx context.Context, image, code, contextJSON, stageConfig st
 	return exitCode, outputs, nil
 }
 
-func sendFinish(stream pb.AgentService_SubscribeClient, workerID, stageRunID string, status int, errMsg string, outputs map[string]string) {
+func sendFinish(send sendFunc, workerID, stageRunID string, status int, errMsg string, outputs map[string]string) {
 	out := outputs
 	if out == nil {
 		out = make(map[string]string)
 	}
-	stream.Send(&pb.AgentRequest{
-		Type: pb.RequestType_REQUEST_TYPE_STAGE_FINISH,
-		Body: &pb.AgentRequest_StageFinish{
-			StageFinish: &pb.StageFinishBody{
+	send(&pb.AgentRequest{
+		Type: pb.RequestType_REQUEST_TYPE_HANDLE_STAGE_FINISH,
+		Body: &pb.AgentRequest_HandleStageFinish{
+			HandleStageFinish: &pb.HandleStageFinishBody{
 				StageRunId: stageRunID,
 				Status:     int32(status),
 				Error:      errMsg,

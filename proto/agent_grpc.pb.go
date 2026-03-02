@@ -19,7 +19,6 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentService_Message_FullMethodName   = "/agent.AgentService/Message"
 	AgentService_Subscribe_FullMethodName = "/agent.AgentService/Subscribe"
 )
 
@@ -27,7 +26,6 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentServiceClient interface {
-	Message(ctx context.Context, in *AgentRequest, opts ...grpc.CallOption) (*AgentResponse, error)
 	Subscribe(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentRequest, AgentResponse], error)
 }
 
@@ -37,16 +35,6 @@ type agentServiceClient struct {
 
 func NewAgentServiceClient(cc grpc.ClientConnInterface) AgentServiceClient {
 	return &agentServiceClient{cc}
-}
-
-func (c *agentServiceClient) Message(ctx context.Context, in *AgentRequest, opts ...grpc.CallOption) (*AgentResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AgentResponse)
-	err := c.cc.Invoke(ctx, AgentService_Message_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *agentServiceClient) Subscribe(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentRequest, AgentResponse], error) {
@@ -66,7 +54,6 @@ type AgentService_SubscribeClient = grpc.BidiStreamingClient[AgentRequest, Agent
 // All implementations must embed UnimplementedAgentServiceServer
 // for forward compatibility.
 type AgentServiceServer interface {
-	Message(context.Context, *AgentRequest) (*AgentResponse, error)
 	Subscribe(grpc.BidiStreamingServer[AgentRequest, AgentResponse]) error
 	mustEmbedUnimplementedAgentServiceServer()
 }
@@ -78,9 +65,6 @@ type AgentServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAgentServiceServer struct{}
 
-func (UnimplementedAgentServiceServer) Message(context.Context, *AgentRequest) (*AgentResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Message not implemented")
-}
 func (UnimplementedAgentServiceServer) Subscribe(grpc.BidiStreamingServer[AgentRequest, AgentResponse]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
 }
@@ -105,24 +89,6 @@ func RegisterAgentServiceServer(s grpc.ServiceRegistrar, srv AgentServiceServer)
 	s.RegisterService(&AgentService_ServiceDesc, srv)
 }
 
-func _AgentService_Message_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AgentRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServiceServer).Message(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AgentService_Message_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).Message(ctx, req.(*AgentRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AgentService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(AgentServiceServer).Subscribe(&grpc.GenericServerStream[AgentRequest, AgentResponse]{ServerStream: stream})
 }
@@ -136,12 +102,7 @@ type AgentService_SubscribeServer = grpc.BidiStreamingServer[AgentRequest, Agent
 var AgentService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "agent.AgentService",
 	HandlerType: (*AgentServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Message",
-			Handler:    _AgentService_Message_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",
