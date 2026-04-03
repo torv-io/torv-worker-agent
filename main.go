@@ -68,6 +68,7 @@ func main() {
 		log.Fatalf("registration failed: %v", resp.GetRegister().GetError())
 	}
 	log.Printf("registered as %s", workerId)
+	log.Printf("orchestrator gRPC %s, HTTP %s", os.Getenv("ORCHESTRATOR_URL"), os.Getenv("ORCHESTRATOR_HTTP_URL"))
 
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -118,7 +119,11 @@ func main() {
 func verifyEnv() {
 	godotenv.Load("../.env", ".env")
 
-	required := []string{"ORCHESTRATOR_URL", "WORKER_SECRET"}
+	required := []string{
+		"ORCHESTRATOR_URL",       // gRPC host:port for AgentService (e.g. host:50052)
+		"ORCHESTRATOR_HTTP_URL", // base URL of the orchestrator HTTP app (Nest); required by release images
+		"WORKER_SECRET",
+	}
 	for _, name := range required {
 		if os.Getenv(name) == "" {
 			log.Fatalf("missing env: %s", name)
