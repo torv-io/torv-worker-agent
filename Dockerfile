@@ -21,19 +21,19 @@ COPY go.mod go.sum ./
 # Copy proto files
 COPY proto/ ./proto/
 
-# Copy source code (needed for go mod to resolve imports)
-COPY main.go ./
+# Copy source code
+COPY *.go ./
 
 # Generate proto code
 RUN protoc --go_out=. --go_opt=paths=source_relative \
     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    proto/worker.proto
+    proto/agent.proto
 
 # Update go.sum with all dependencies
 RUN go mod tidy
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o worker-agent .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -a -installsuffix cgo -o worker-agent .
 
 # Runtime stage
 FROM alpine:latest

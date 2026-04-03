@@ -17,9 +17,8 @@ enum RequestType {
   REQUEST_TYPE_REGISTER = 1;
   REQUEST_TYPE_HEARTBEAT = 2;
   REQUEST_TYPE_STAGE_RUN_MESSAGE = 3;
-  REQUEST_TYPE_SUBSCRIBE = 4;
-  REQUEST_TYPE_HANDLE_STAGE_START = 5;
-  REQUEST_TYPE_HANDLE_STAGE_FINISH = 6;
+  REQUEST_TYPE_HANDLE_STAGE_START = 4;
+  REQUEST_TYPE_HANDLE_STAGE_FINISH = 5;
 }
 
 message AgentRequest {
@@ -28,9 +27,8 @@ message AgentRequest {
     RegisterBody register = 2;
     HeartbeatBody heartbeat = 3;
     StageRunMessageBody stage_run_message = 4;
-    SubscribeBody subscribe = 5;
-    HandleStageStartBody handle_stage_start = 6;
-    HandleStageFinishBody handle_stage_finish = 7;
+    HandleStageStartBody handle_stage_start = 5;
+    HandleStageFinishBody handle_stage_finish = 6;
   }
 }
 
@@ -62,10 +60,6 @@ message HandleStageFinishBody {
   int32 status = 2;
   string error = 3;
   map<string, string> outputs = 4;
-}
-
-message SubscribeBody {
-  string worker_id = 1;
 }
 
 // ------------------------------------------------------------
@@ -107,4 +101,8 @@ message StageRunMessageResponseBody {
 message WorkItemBody {
   string stage_id = 1;
   string stage_run_id = 2;
+  string runner_type = 3;
+  string code_presigned_url = 4;
+  string config_presigned_url = 5;
+  string context_json = 6;
 }
