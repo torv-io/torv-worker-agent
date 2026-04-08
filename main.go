@@ -52,8 +52,9 @@ func main() {
 		Type: agent.RequestType_REQUEST_TYPE_REGISTER,
 		Body: &agent.AgentRequest_Register{
 			Register: &agent.RegisterBody{
-				Secret:  os.Getenv("WORKER_SECRET"),
-				Address: "",
+				Secret:      os.Getenv("WORKER_SECRET"),
+				Address:     "",
+				WorkspaceId: os.Getenv("WORKSPACE_ID"),
 			},
 		},
 	})
@@ -123,6 +124,7 @@ func verifyEnv() {
 		"ORCHESTRATOR_URL",       // gRPC host:port for AgentService (e.g. host:50052)
 		"ORCHESTRATOR_HTTP_URL", // base URL of the orchestrator HTTP app (Nest); required by release images
 		"WORKER_SECRET",
+		"WORKSPACE_ID", // worker is scoped to this workspace for listing and stage dispatch
 	}
 	for _, name := range required {
 		if os.Getenv(name) == "" {

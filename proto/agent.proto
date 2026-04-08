@@ -35,6 +35,7 @@ message AgentRequest {
 message RegisterBody {
   string secret = 1;
   string address = 2;
+  string workspace_id = 3;
 }
 
 message HeartbeatBody {

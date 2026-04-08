@@ -81,12 +81,14 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 
 	containerCfg := &container.Config{
 		Image:        image,
+		WorkingDir:   "/app",
 		Env:          env,
 		OpenStdin:    false,
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
-		Cmd:          []string{"./bootstrap.sh"},
+		// Absolute path + sh: avoids missing WORKDIR from image metadata and Alpine (no bash in shebang).
+		Cmd: []string{"/bin/sh", "/app/bootstrap.sh"},
 	}
 
 	hostCfg := &container.HostConfig{}
