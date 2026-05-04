@@ -33,12 +33,32 @@ type stdoutLine struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// Captured reasons for sendStageFinish, in priority order:
-//   1. structured `result` event with success=false (resultError)
-//   2. last `[error]` log line (lastErrorLog) — caught when stage crashes without emitting a result
+// Captured information from the stage's stdout stream. The structured `result`
+// event is authoritative for success/failure; container exit code is only used
+// as a fallback when no result was emitted (e.g. the stage crashed before
+// writing one).
 type streamCaptured struct {
-	resultError  string
-	lastErrorLog string
+	resultSeen    bool
+	resultSuccess bool
+	resultError   string
+	lastErrorLog  string
+}
+
+// Per-message and per-line caps to avoid forwarding pathologically large
+// payloads (e.g. a stage that dumps a multi-MB array to a log message). 16 KB
+// is plenty for any human-readable log line.
+const maxLogMessageBytes = 16 * 1024
+
+// Per-line cap for the raw stdout scanner. Stages that emit very large result
+// payloads need headroom; 16 MB is far above anything reasonable but bounded
+// enough to prevent runaway memory.
+const maxScanBufferBytes = 16 * 1024 * 1024
+
+func truncateForLog(s string) string {
+	if len(s) <= maxLogMessageBytes {
+		return s
+	}
+	return s[:maxLogMessageBytes] + fmt.Sprintf("… (truncated %d bytes)", len(s)-maxLogMessageBytes)
 }
 
 func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
@@ -70,15 +90,31 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		return
 	}
 
+	// The stage's structured `result` event is the source of truth. A non-zero
+	// container exit code *after* a successful result (e.g. node process killed
+	// by the kernel mid-flush of a huge stdout payload) must not be reported as
+	// a failure — the stage's own outcome wins.
+	if captured.resultSeen {
+		if captured.resultSuccess {
+			e.sendStageFinish(stageRunId, 0, "")
+			return
+		}
+		reason := captured.resultError
+		if reason == "" {
+			reason = "Stage reported failure"
+		}
+		e.sendStageFinish(stageRunId, 1, reason)
+		return
+	}
+
+	// No result event reached us — stage likely crashed before emitting one.
+	// Fall back to exit code + best-effort reason from logs.
 	reason := ""
 	if exitCode != 0 {
-		switch {
-		case captured.resultError != "":
-			reason = captured.resultError
-		case captured.lastErrorLog != "":
+		if captured.lastErrorLog != "" {
 			reason = captured.lastErrorLog
-		default:
-			reason = fmt.Sprintf("Stage exited with non-zero status %d", exitCode)
+		} else {
+			reason = fmt.Sprintf("Stage exited with non-zero status %d before reporting a result", exitCode)
 		}
 	}
 	e.sendStageFinish(stageRunId, int32(exitCode), reason)
@@ -169,7 +205,7 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 	}()
 
 	scanner := bufio.NewScanner(pr)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	scanner.Buffer(make([]byte, 0, 64*1024), maxScanBufferBytes)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -178,28 +214,36 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 
 		var parsed stdoutLine
 		if err := json.Unmarshal([]byte(line), &parsed); err != nil {
-			e.sendLog(stageRunId, "info", line)
+			// Non-JSON stdout: forward as info, but cap to keep huge dumps out of the console.
+			e.sendLog(stageRunId, "info", truncateForLog(line))
 			continue
 		}
 
 		switch parsed.Type {
 		case "log":
-			e.sendLog(stageRunId, parsed.Level, parsed.Message)
+			e.sendLog(stageRunId, parsed.Level, truncateForLog(parsed.Message))
 			if strings.EqualFold(parsed.Level, "error") && parsed.Message != "" {
 				captured.lastErrorLog = parsed.Message
 			}
 		case "result":
-			// Capture the structured error so HandleWorkItem can forward it as the clean
-			// failure reason. Also surface it in the worker console — the stage may have only
-			// reported the failure via errorResult() and not as a separate logger.error call.
+			// Structured result event — record the outcome and emit a clean,
+			// human-readable line. Never echo the raw JSON: it can be huge and
+			// is for the orchestrator/SDK, not the console reader.
+			captured.resultSeen = true
 			if parsed.Success {
+				captured.resultSuccess = true
 				e.sendLog(stageRunId, "info", "Stage completed successfully")
-			} else if parsed.Error != "" {
-				e.sendLog(stageRunId, "error", parsed.Error)
-				captured.resultError = parsed.Error
+			} else {
+				captured.resultSuccess = false
+				if parsed.Error != "" {
+					captured.resultError = parsed.Error
+					e.sendLog(stageRunId, "error", truncateForLog(parsed.Error))
+				} else {
+					e.sendLog(stageRunId, "error", "Stage reported failure (no message)")
+				}
 			}
 		default:
-			e.sendLog(stageRunId, "info", line)
+			e.sendLog(stageRunId, "info", truncateForLog(line))
 		}
 	}
 
