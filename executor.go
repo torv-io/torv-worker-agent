@@ -33,6 +33,14 @@ type stdoutLine struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// Captured reasons for sendStageFinish, in priority order:
+//   1. structured `result` event with success=false (resultError)
+//   2. last `[error]` log line (lastErrorLog) — caught when stage crashes without emitting a result
+type streamCaptured struct {
+	resultError  string
+	lastErrorLog string
+}
+
 func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 	setStatus("busy")
 	defer setStatus("idle")
@@ -55,17 +63,28 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		return
 	}
 
-	exitCode, err := e.runContainer(stageRunId, stageId, image, wi)
+	exitCode, captured, err := e.runContainer(stageRunId, stageId, image, wi)
 	if err != nil {
 		e.sendLog(stageRunId, "error", fmt.Sprintf("Container execution failed: %v", err))
 		e.sendStageFinish(stageRunId, 1, err.Error())
 		return
 	}
 
-	e.sendStageFinish(stageRunId, int32(exitCode), "")
+	reason := ""
+	if exitCode != 0 {
+		switch {
+		case captured.resultError != "":
+			reason = captured.resultError
+		case captured.lastErrorLog != "":
+			reason = captured.lastErrorLog
+		default:
+			reason = fmt.Sprintf("Stage exited with non-zero status %d", exitCode)
+		}
+	}
+	e.sendStageFinish(stageRunId, int32(exitCode), reason)
 }
 
-func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.WorkItemBody) (int, error) {
+func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.WorkItemBody) (int, streamCaptured, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -99,9 +118,11 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		},
 	}
 
+	var captured streamCaptured
+
 	created, err := e.docker.ContainerCreate(ctx, containerCfg, hostCfg, networkCfg, nil, containerName)
 	if err != nil {
-		return -1, fmt.Errorf("create container: %w", err)
+		return -1, captured, fmt.Errorf("create container: %w", err)
 	}
 	containerID := created.ID
 
@@ -117,28 +138,30 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		Stderr: true,
 	})
 	if err != nil {
-		return -1, fmt.Errorf("attach: %w", err)
+		return -1, captured, fmt.Errorf("attach: %w", err)
 	}
 	defer attach.Close()
 
 	if err := e.docker.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
-		return -1, fmt.Errorf("start: %w", err)
+		return -1, captured, fmt.Errorf("start: %w", err)
 	}
 
-	e.streamOutput(stageRunId, attach.Reader)
+	captured = e.streamOutput(stageRunId, attach.Reader)
 
 	waitCh, errCh := e.docker.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case result := <-waitCh:
-		return int(result.StatusCode), nil
+		return int(result.StatusCode), captured, nil
 	case err := <-errCh:
-		return -1, fmt.Errorf("wait: %w", err)
+		return -1, captured, fmt.Errorf("wait: %w", err)
 	case <-ctx.Done():
-		return -1, fmt.Errorf("container timed out")
+		return -1, captured, fmt.Errorf("container timed out")
 	}
 }
 
-func (e *Executor) streamOutput(stageRunId string, reader io.Reader) {
+func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptured {
+	var captured streamCaptured
+
 	pr, pw := io.Pipe()
 	go func() {
 		stdcopy.StdCopy(pw, pw, reader)
@@ -162,20 +185,25 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) {
 		switch parsed.Type {
 		case "log":
 			e.sendLog(stageRunId, parsed.Level, parsed.Message)
+			if strings.EqualFold(parsed.Level, "error") && parsed.Message != "" {
+				captured.lastErrorLog = parsed.Message
+			}
 		case "result":
-			level := "info"
-			if !parsed.Success {
-				level = "error"
+			// Capture the structured error so HandleWorkItem can forward it as the clean
+			// failure reason. Also surface it in the worker console — the stage may have only
+			// reported the failure via errorResult() and not as a separate logger.error call.
+			if parsed.Success {
+				e.sendLog(stageRunId, "info", "Stage completed successfully")
+			} else if parsed.Error != "" {
+				e.sendLog(stageRunId, "error", parsed.Error)
+				captured.resultError = parsed.Error
 			}
-			msg := fmt.Sprintf("Stage result: success=%v", parsed.Success)
-			if parsed.Error != "" {
-				msg += fmt.Sprintf(", error=%s", parsed.Error)
-			}
-			e.sendLog(stageRunId, level, msg)
 		default:
 			e.sendLog(stageRunId, "info", line)
 		}
 	}
+
+	return captured
 }
 
 func (e *Executor) sendStageStart(stageRunId string) {
