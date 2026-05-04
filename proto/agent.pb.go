@@ -510,11 +510,13 @@ func (x *HandleStageStartBody) GetMessage() string {
 }
 
 type HandleStageFinishBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StageRunId    string                 `protobuf:"bytes,1,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	Outputs       map[string]string      `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	StageRunId string                 `protobuf:"bytes,1,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
+	Status     int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Error      string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	// Raw JSON-encoded outputs object emitted by the stage's `result` event.
+	// Empty when the stage produced no outputs.
+	OutputsJson   string `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3" json:"outputs_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -570,11 +572,11 @@ func (x *HandleStageFinishBody) GetError() string {
 	return ""
 }
 
-func (x *HandleStageFinishBody) GetOutputs() map[string]string {
+func (x *HandleStageFinishBody) GetOutputsJson() string {
 	if x != nil {
-		return x.Outputs
+		return x.OutputsJson
 	}
-	return nil
+	return ""
 }
 
 type AgentResponse struct {
@@ -969,16 +971,13 @@ const file_proto_agent_proto_rawDesc = "" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12 \n" +
 	"\fstage_run_id\x18\x02 \x01(\tR\n" +
 	"stageRunId\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"\xe8\x01\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\x8a\x01\n" +
 	"\x15HandleStageFinishBody\x12 \n" +
 	"\fstage_run_id\x18\x01 \x01(\tR\n" +
 	"stageRunId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\x12C\n" +
-	"\aoutputs\x18\x04 \x03(\v2).agent.HandleStageFinishBody.OutputsEntryR\aoutputs\x1a:\n" +
-	"\fOutputsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbf\x02\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12!\n" +
+	"\foutputs_json\x18\x04 \x01(\tR\voutputsJson\"\xbf\x02\n" +
 	"\rAgentResponse\x12'\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x13.agent.ResponseTypeR\x04type\x129\n" +
 	"\bregister\x18\x02 \x01(\v2\x1b.agent.RegisterResponseBodyH\x00R\bregister\x12<\n" +
@@ -1032,7 +1031,7 @@ func file_proto_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_proto_agent_proto_goTypes = []any{
 	(RequestType)(0),                    // 0: agent.RequestType
 	(ResponseType)(0),                   // 1: agent.ResponseType
@@ -1047,7 +1046,6 @@ var file_proto_agent_proto_goTypes = []any{
 	(*HeartbeatResponseBody)(nil),       // 10: agent.HeartbeatResponseBody
 	(*StageRunMessageResponseBody)(nil), // 11: agent.StageRunMessageResponseBody
 	(*WorkItemBody)(nil),                // 12: agent.WorkItemBody
-	nil,                                 // 13: agent.HandleStageFinishBody.OutputsEntry
 }
 var file_proto_agent_proto_depIdxs = []int32{
 	0,  // 0: agent.AgentRequest.type:type_name -> agent.RequestType
@@ -1056,19 +1054,18 @@ var file_proto_agent_proto_depIdxs = []int32{
 	5,  // 3: agent.AgentRequest.stage_run_message:type_name -> agent.StageRunMessageBody
 	6,  // 4: agent.AgentRequest.handle_stage_start:type_name -> agent.HandleStageStartBody
 	7,  // 5: agent.AgentRequest.handle_stage_finish:type_name -> agent.HandleStageFinishBody
-	13, // 6: agent.HandleStageFinishBody.outputs:type_name -> agent.HandleStageFinishBody.OutputsEntry
-	1,  // 7: agent.AgentResponse.type:type_name -> agent.ResponseType
-	9,  // 8: agent.AgentResponse.register:type_name -> agent.RegisterResponseBody
-	10, // 9: agent.AgentResponse.heartbeat:type_name -> agent.HeartbeatResponseBody
-	11, // 10: agent.AgentResponse.stage_run_message:type_name -> agent.StageRunMessageResponseBody
-	12, // 11: agent.AgentResponse.work_item:type_name -> agent.WorkItemBody
-	2,  // 12: agent.AgentService.Subscribe:input_type -> agent.AgentRequest
-	8,  // 13: agent.AgentService.Subscribe:output_type -> agent.AgentResponse
-	13, // [13:14] is the sub-list for method output_type
-	12, // [12:13] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	1,  // 6: agent.AgentResponse.type:type_name -> agent.ResponseType
+	9,  // 7: agent.AgentResponse.register:type_name -> agent.RegisterResponseBody
+	10, // 8: agent.AgentResponse.heartbeat:type_name -> agent.HeartbeatResponseBody
+	11, // 9: agent.AgentResponse.stage_run_message:type_name -> agent.StageRunMessageResponseBody
+	12, // 10: agent.AgentResponse.work_item:type_name -> agent.WorkItemBody
+	2,  // 11: agent.AgentService.Subscribe:input_type -> agent.AgentRequest
+	8,  // 12: agent.AgentService.Subscribe:output_type -> agent.AgentResponse
+	12, // [12:13] is the sub-list for method output_type
+	11, // [11:12] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_proto_agent_proto_init() }
@@ -1095,7 +1092,7 @@ func file_proto_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_agent_proto_rawDesc), len(file_proto_agent_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   12,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -26,11 +26,12 @@ type Executor struct {
 }
 
 type stdoutLine struct {
-	Type    string `json:"type"`
-	Level   string `json:"level,omitempty"`
-	Message string `json:"message,omitempty"`
-	Success bool   `json:"success,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Type    string          `json:"type"`
+	Level   string          `json:"level,omitempty"`
+	Message string          `json:"message,omitempty"`
+	Success bool            `json:"success,omitempty"`
+	Error   string          `json:"error,omitempty"`
+	Outputs json.RawMessage `json:"outputs,omitempty"`
 }
 
 // Captured information from the stage's stdout stream. The structured `result`
@@ -41,6 +42,7 @@ type streamCaptured struct {
 	resultSeen    bool
 	resultSuccess bool
 	resultError   string
+	resultOutputs string
 	lastErrorLog  string
 }
 
@@ -50,9 +52,9 @@ type streamCaptured struct {
 const maxLogMessageBytes = 16 * 1024
 
 // Per-line cap for the raw stdout scanner. Stages that emit very large result
-// payloads need headroom; 16 MB is far above anything reasonable but bounded
-// enough to prevent runaway memory.
-const maxScanBufferBytes = 16 * 1024 * 1024
+// payloads (or accidentally log huge objects) need headroom; 64 MB is far
+// above anything sane but bounded enough to prevent runaway memory.
+const maxScanBufferBytes = 64 * 1024 * 1024
 
 func truncateForLog(s string) string {
 	if len(s) <= maxLogMessageBytes {
@@ -73,20 +75,20 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 	image, ok := e.images[strings.ToLower(wi.GetRunnerType())]
 	if !ok {
 		e.sendLog(stageRunId, "error", fmt.Sprintf("No image configured for runner type: %s", wi.GetRunnerType()))
-		e.sendStageFinish(stageRunId, 1, fmt.Sprintf("Unknown runner type: %s", wi.GetRunnerType()))
+		e.sendStageFinish(stageRunId, 1, fmt.Sprintf("Unknown runner type: %s", wi.GetRunnerType()), "")
 		return
 	}
 
 	if wi.GetCodePresignedUrl() == "" || wi.GetConfigPresignedUrl() == "" {
 		e.sendLog(stageRunId, "error", "Work item missing presigned URLs")
-		e.sendStageFinish(stageRunId, 1, "Missing presigned URLs on work item")
+		e.sendStageFinish(stageRunId, 1, "Missing presigned URLs on work item", "")
 		return
 	}
 
 	exitCode, captured, err := e.runContainer(stageRunId, stageId, image, wi)
 	if err != nil {
 		e.sendLog(stageRunId, "error", fmt.Sprintf("Container execution failed: %v", err))
-		e.sendStageFinish(stageRunId, 1, err.Error())
+		e.sendStageFinish(stageRunId, 1, err.Error(), "")
 		return
 	}
 
@@ -96,14 +98,14 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 	// a failure — the stage's own outcome wins.
 	if captured.resultSeen {
 		if captured.resultSuccess {
-			e.sendStageFinish(stageRunId, 0, "")
+			e.sendStageFinish(stageRunId, 0, "", captured.resultOutputs)
 			return
 		}
 		reason := captured.resultError
 		if reason == "" {
 			reason = "Stage reported failure"
 		}
-		e.sendStageFinish(stageRunId, 1, reason)
+		e.sendStageFinish(stageRunId, 1, reason, captured.resultOutputs)
 		return
 	}
 
@@ -117,7 +119,7 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 			reason = fmt.Sprintf("Stage exited with non-zero status %d before reporting a result", exitCode)
 		}
 	}
-	e.sendStageFinish(stageRunId, int32(exitCode), reason)
+	e.sendStageFinish(stageRunId, int32(exitCode), reason, "")
 }
 
 func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.WorkItemBody) (int, streamCaptured, error) {
@@ -206,6 +208,15 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 
 	scanner := bufio.NewScanner(pr)
 	scanner.Buffer(make([]byte, 0, 64*1024), maxScanBufferBytes)
+	defer func() {
+		// Surface scanner errors (typically `bufio.Scanner: token too long`,
+		// e.g. a stage that logged a single multi-hundred-MB object). Without
+		// this, the loop just silently exits and the user has no idea why
+		// later events (including the `result` line) never arrived.
+		if err := scanner.Err(); err != nil {
+			e.sendLog(stageRunId, "error", fmt.Sprintf("worker scanner aborted: %v — subsequent stage output (including the result event) was dropped", err))
+		}
+	}()
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
@@ -230,6 +241,9 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 			// human-readable line. Never echo the raw JSON: it can be huge and
 			// is for the orchestrator/SDK, not the console reader.
 			captured.resultSeen = true
+			if len(parsed.Outputs) > 0 && string(parsed.Outputs) != "null" {
+				captured.resultOutputs = string(parsed.Outputs)
+			}
 			if parsed.Success {
 				captured.resultSuccess = true
 				e.sendLog(stageRunId, "info", "Stage completed successfully")
@@ -264,15 +278,16 @@ func (e *Executor) sendStageStart(stageRunId string) {
 	})
 }
 
-func (e *Executor) sendStageFinish(stageRunId string, exitCode int32, errorMsg string) {
-	log.Printf("[%s] stage finish (exit=%d, error=%q)", stageRunId, exitCode, errorMsg)
+func (e *Executor) sendStageFinish(stageRunId string, exitCode int32, errorMsg, outputsJson string) {
+	log.Printf("[%s] stage finish (exit=%d, error=%q, outputs=%dB)", stageRunId, exitCode, errorMsg, len(outputsJson))
 	e.stream.Send(&agent.AgentRequest{
 		Type: agent.RequestType_REQUEST_TYPE_HANDLE_STAGE_FINISH,
 		Body: &agent.AgentRequest_HandleStageFinish{
 			HandleStageFinish: &agent.HandleStageFinishBody{
-				StageRunId: stageRunId,
-				Status:     exitCode,
-				Error:      errorMsg,
+				StageRunId:  stageRunId,
+				Status:      exitCode,
+				Error:       errorMsg,
+				OutputsJson: outputsJson,
 			},
 		},
 	})
