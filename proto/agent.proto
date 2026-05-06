@@ -60,8 +60,6 @@ message HandleStageFinishBody {
   string stage_run_id = 1;
   int32 status = 2;
   string error = 3;
-  // Raw JSON-encoded outputs object emitted by the stage's `result` event.
-  // Empty when the stage produced no outputs.
   string outputs_json = 4;
 }
 

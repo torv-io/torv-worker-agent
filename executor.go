@@ -29,15 +29,26 @@ type stdoutLine struct {
 	Type    string          `json:"type"`
 	Level   string          `json:"level,omitempty"`
 	Message string          `json:"message,omitempty"`
+	Args    json.RawMessage `json:"args,omitempty"`
 	Success bool            `json:"success,omitempty"`
 	Error   string          `json:"error,omitempty"`
 	Outputs json.RawMessage `json:"outputs,omitempty"`
 }
 
-// Captured information from the stage's stdout stream. The structured `result`
-// event is authoritative for success/failure; container exit code is only used
-// as a fallback when no result was emitted (e.g. the stage crashed before
-// writing one).
+// formattedLogContent joins message + serialized args from pipe-node-worker-agent.
+// Without this, diagnostics passed as logger.error('label', { url, bodyPreview }) were dropped.
+func formattedLogContent(parsed stdoutLine) string {
+	msg := strings.TrimSpace(parsed.Message)
+	args := strings.TrimSpace(string(parsed.Args))
+	if args == "" || args == "null" {
+		return msg
+	}
+	if msg == "" {
+		return args
+	}
+	return msg + " " + args
+}
+
 type streamCaptured struct {
 	resultSeen    bool
 	resultSuccess bool
@@ -46,14 +57,7 @@ type streamCaptured struct {
 	lastErrorLog  string
 }
 
-// Per-message and per-line caps to avoid forwarding pathologically large
-// payloads (e.g. a stage that dumps a multi-MB array to a log message). 16 KB
-// is plenty for any human-readable log line.
-const maxLogMessageBytes = 16 * 1024
-
-// Per-line cap for the raw stdout scanner. Stages that emit very large result
-// payloads (or accidentally log huge objects) need headroom; 64 MB is far
-// above anything sane but bounded enough to prevent runaway memory.
+const maxLogMessageBytes = 64 * 1024
 const maxScanBufferBytes = 64 * 1024 * 1024
 
 func truncateForLog(s string) string {
@@ -92,10 +96,6 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		return
 	}
 
-	// The stage's structured `result` event is the source of truth. A non-zero
-	// container exit code *after* a successful result (e.g. node process killed
-	// by the kernel mid-flush of a huge stdout payload) must not be reported as
-	// a failure — the stage's own outcome wins.
 	if captured.resultSeen {
 		if captured.resultSuccess {
 			e.sendStageFinish(stageRunId, 0, "", captured.resultOutputs)
@@ -109,8 +109,6 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		return
 	}
 
-	// No result event reached us — stage likely crashed before emitting one.
-	// Fall back to exit code + best-effort reason from logs.
 	reason := ""
 	if exitCode != 0 {
 		if captured.lastErrorLog != "" {
@@ -144,7 +142,6 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
-		// Absolute path + sh: avoids missing WORKDIR from image metadata and Alpine (no bash in shebang).
 		Cmd: []string{"/bin/sh", "/app/bootstrap.sh"},
 	}
 
@@ -209,10 +206,6 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 	scanner := bufio.NewScanner(pr)
 	scanner.Buffer(make([]byte, 0, 64*1024), maxScanBufferBytes)
 	defer func() {
-		// Surface scanner errors (typically `bufio.Scanner: token too long`,
-		// e.g. a stage that logged a single multi-hundred-MB object). Without
-		// this, the loop just silently exits and the user has no idea why
-		// later events (including the `result` line) never arrived.
 		if err := scanner.Err(); err != nil {
 			e.sendLog(stageRunId, "error", fmt.Sprintf("worker scanner aborted: %v — subsequent stage output (including the result event) was dropped", err))
 		}
@@ -225,21 +218,18 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 
 		var parsed stdoutLine
 		if err := json.Unmarshal([]byte(line), &parsed); err != nil {
-			// Non-JSON stdout: forward as info, but cap to keep huge dumps out of the console.
 			e.sendLog(stageRunId, "info", truncateForLog(line))
 			continue
 		}
 
 		switch parsed.Type {
 		case "log":
-			e.sendLog(stageRunId, parsed.Level, truncateForLog(parsed.Message))
-			if strings.EqualFold(parsed.Level, "error") && parsed.Message != "" {
-				captured.lastErrorLog = parsed.Message
+			content := formattedLogContent(parsed)
+			e.sendLog(stageRunId, parsed.Level, truncateForLog(content))
+			if strings.EqualFold(parsed.Level, "error") && content != "" {
+				captured.lastErrorLog = content
 			}
 		case "result":
-			// Structured result event — record the outcome and emit a clean,
-			// human-readable line. Never echo the raw JSON: it can be huge and
-			// is for the orchestrator/SDK, not the console reader.
 			captured.resultSeen = true
 			if len(parsed.Outputs) > 0 && string(parsed.Outputs) != "null" {
 				captured.resultOutputs = string(parsed.Outputs)
