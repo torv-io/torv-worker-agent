@@ -1,39 +1,22 @@
 # Build stage
 FROM golang:1.24-alpine AS builder
 
-# Install protoc compiler and required tools
-RUN apk add --no-cache \
-    protobuf \
-    protobuf-dev \
-    git \
-    make
+# git/ca-certificates are needed for Go module downloads. The protobuf code is committed
+# under proto/ (agent.pb.go, agent_grpc.pb.go), so we do not install protoc or regenerate it.
+RUN apk add --no-cache git ca-certificates
 
-# Install protoc plugins for Go
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-# Set working directory
 WORKDIR /build
 
-# Copy go mod files
+# Download dependencies first for better layer caching.
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Copy proto files
+# Copy committed proto bindings and source.
 COPY proto/ ./proto/
-
-# Copy source code
 COPY *.go ./
 
-# Generate proto code
-RUN protoc --go_out=. --go_opt=paths=source_relative \
-    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    proto/agent.proto
-
-# Update go.sum with all dependencies
-RUN go mod tidy
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -a -installsuffix cgo -o worker-agent .
+# Build the binary.
+RUN CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -o worker-agent .
 
 # Runtime stage
 FROM alpine:latest
