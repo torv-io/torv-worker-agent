@@ -31,8 +31,37 @@ type stdoutLine struct {
 	Message string          `json:"message,omitempty"`
 	Args    json.RawMessage `json:"args,omitempty"`
 	Success bool            `json:"success,omitempty"`
-	Error   string          `json:"error,omitempty"`
+	// Error is accepted as raw JSON: stage runners may report it as a string or an array of
+	// strings (e.g. errorResult(["..."])). Decoding into a fixed type would fail the whole
+	// line and silently drop the result event — flipping a failed run into a "success".
+	Error   json.RawMessage `json:"error,omitempty"`
 	Outputs json.RawMessage `json:"outputs,omitempty"`
+}
+
+// extractErrorMessage coerces a result event's `error` field (string, []string, or any JSON)
+// into a single human-readable message.
+func extractErrorMessage(raw json.RawMessage) string {
+	s := strings.TrimSpace(string(raw))
+	if s == "" || s == "null" {
+		return ""
+	}
+	var str string
+	if err := json.Unmarshal(raw, &str); err == nil {
+		return strings.TrimSpace(str)
+	}
+	var arr []string
+	if err := json.Unmarshal(raw, &arr); err == nil {
+		return strings.TrimSpace(strings.Join(arr, "; "))
+	}
+	var anyArr []any
+	if err := json.Unmarshal(raw, &anyArr); err == nil {
+		parts := make([]string, 0, len(anyArr))
+		for _, v := range anyArr {
+			parts = append(parts, fmt.Sprintf("%v", v))
+		}
+		return strings.TrimSpace(strings.Join(parts, "; "))
+	}
+	return s
 }
 
 // formattedLogContent joins message + serialized args from pipe-node-worker-agent.
@@ -239,9 +268,9 @@ func (e *Executor) streamOutput(stageRunId string, reader io.Reader) streamCaptu
 				e.sendLog(stageRunId, "info", "Stage completed successfully")
 			} else {
 				captured.resultSuccess = false
-				if parsed.Error != "" {
-					captured.resultError = parsed.Error
-					e.sendLog(stageRunId, "error", truncateForLog(parsed.Error))
+				if msg := extractErrorMessage(parsed.Error); msg != "" {
+					captured.resultError = msg
+					e.sendLog(stageRunId, "error", truncateForLog(msg))
 				} else {
 					e.sendLog(stageRunId, "error", "Stage reported failure (no message)")
 				}
