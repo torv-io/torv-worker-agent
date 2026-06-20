@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -156,6 +157,12 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		"CONTEXT_JSON=" + wi.GetContextJson(),
 		"STAGE_ID=" + stageId,
 		"STAGE_RUN_ID=" + stageRunId,
+	}
+	if v := os.Getenv("ORCHESTRATOR_HTTP_URL"); v != "" {
+		env = append(env, "ORCHESTRATOR_HTTP_URL="+v)
+	}
+	if v := os.Getenv("WORKER_SECRET"); v != "" {
+		env = append(env, "WORKER_SECRET="+v)
 	}
 
 	containerCfg := &container.Config{
