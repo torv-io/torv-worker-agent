@@ -36,6 +36,10 @@ message RegisterBody {
   string secret = 1;
   string address = 2;
   string workspace_id = 3;
+  string host_label = 4;
+  string reported_hostname = 5;
+  string reported_os = 6;
+  string bootstrap_token = 7;
 }
 
 message HeartbeatBody {

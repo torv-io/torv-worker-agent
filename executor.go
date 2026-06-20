@@ -31,15 +31,14 @@ type stdoutLine struct {
 	Message string          `json:"message,omitempty"`
 	Args    json.RawMessage `json:"args,omitempty"`
 	Success bool            `json:"success,omitempty"`
-	// Error is accepted as raw JSON: stage runners may report it as a string or an array of
-	// strings (e.g. errorResult(["..."])). Decoding into a fixed type would fail the whole
-	// line and silently drop the result event — flipping a failed run into a "success".
+	// Error may be a string or an array (e.g. errorResult(["..."])). Decoding into a fixed type
+	// would fail the line and drop the whole result event — silently flipping failure to success.
 	Error   json.RawMessage `json:"error,omitempty"`
 	Outputs json.RawMessage `json:"outputs,omitempty"`
 }
 
-// extractErrorMessage coerces a result event's `error` field (string, []string, or any JSON)
-// into a single human-readable message.
+// extractErrorMessage coerces a result event's `error` field (a string or any JSON array) into a
+// single human-readable message.
 func extractErrorMessage(raw json.RawMessage) string {
 	s := strings.TrimSpace(string(raw))
 	if s == "" || s == "null" {
@@ -49,14 +48,10 @@ func extractErrorMessage(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &str); err == nil {
 		return strings.TrimSpace(str)
 	}
-	var arr []string
+	var arr []any
 	if err := json.Unmarshal(raw, &arr); err == nil {
-		return strings.TrimSpace(strings.Join(arr, "; "))
-	}
-	var anyArr []any
-	if err := json.Unmarshal(raw, &anyArr); err == nil {
-		parts := make([]string, 0, len(anyArr))
-		for _, v := range anyArr {
+		parts := make([]string, 0, len(arr))
+		for _, v := range arr {
 			parts = append(parts, fmt.Sprintf("%v", v))
 		}
 		return strings.TrimSpace(strings.Join(parts, "; "))

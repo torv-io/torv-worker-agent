@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ func getStatus() string {
 
 func main() {
 	verifyEnv()
+	registrationMode := registrationModeLabel()
 
 	conn, err := grpc.NewClient(os.Getenv("ORCHESTRATOR_URL"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -48,14 +50,11 @@ func main() {
 		log.Fatalf("subscribe: %v", err)
 	}
 
+	register := buildRegisterBody()
 	stream.Send(&agent.AgentRequest{
 		Type: agent.RequestType_REQUEST_TYPE_REGISTER,
 		Body: &agent.AgentRequest_Register{
-			Register: &agent.RegisterBody{
-				Secret:      os.Getenv("WORKER_SECRET"),
-				Address:     "",
-				WorkspaceId: os.Getenv("WORKSPACE_ID"),
-			},
+			Register: register,
 		},
 	})
 
@@ -68,7 +67,7 @@ func main() {
 	} else {
 		log.Fatalf("registration failed: %v", resp.GetRegister().GetError())
 	}
-	log.Printf("registered as %s", workerId)
+	log.Printf("registered as %s (%s)", workerId, registrationMode)
 	log.Printf("orchestrator gRPC %s, HTTP %s", os.Getenv("ORCHESTRATOR_URL"), os.Getenv("ORCHESTRATOR_HTTP_URL"))
 
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -85,7 +84,7 @@ func main() {
 			"node":   envOrDefault("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:main"),
 			"python": envOrDefault("PYTHON_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-python-worker-agent:main"),
 		},
-		networkName: envOrDefault("DOCKER_NETWORK", "pipe_torv_worker_network"),
+		networkName: resolveDockerNetwork(),
 	}
 
 	go func() {
@@ -117,20 +116,72 @@ func main() {
 	}
 }
 
+// Registration modes (one binary):
+//   - Self-hosted:     WORKER_SECRET + WORKSPACE_ID
+//   - Dedicated cloud: BOOTSTRAP_TOKEN + WORKSPACE_ID
+//   - Fleet:           BOOTSTRAP_TOKEN only (no workspace)
 func verifyEnv() {
 	godotenv.Load("../.env", ".env")
 
-	required := []string{
-		"ORCHESTRATOR_URL",       // gRPC host:port for AgentService (e.g. host:50052)
-		"ORCHESTRATOR_HTTP_URL", // base URL of the orchestrator HTTP app (Nest); required by release images
-		"WORKER_SECRET",
-		"WORKSPACE_ID", // worker is scoped to this workspace for listing and stage dispatch
-	}
-	for _, name := range required {
+	for _, name := range []string{"ORCHESTRATOR_URL", "ORCHESTRATOR_HTTP_URL"} {
 		if os.Getenv(name) == "" {
 			log.Fatalf("missing env: %s", name)
 		}
 	}
+
+	if os.Getenv("BOOTSTRAP_TOKEN") != "" {
+		return
+	}
+
+	for _, name := range []string{"WORKER_SECRET", "WORKSPACE_ID"} {
+		if os.Getenv(name) == "" {
+			log.Fatalf("missing env: %s (or set BOOTSTRAP_TOKEN for cloud/fleet hosts)", name)
+		}
+	}
+}
+
+func registrationModeLabel() string {
+	if os.Getenv("BOOTSTRAP_TOKEN") != "" {
+		if os.Getenv("WORKSPACE_ID") != "" {
+			return "dedicated cloud"
+		}
+		return "fleet"
+	}
+	return "self-hosted"
+}
+
+func buildRegisterBody() *agent.RegisterBody {
+	body := &agent.RegisterBody{Address: ""}
+
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		body.ReportedHostname = hostname
+	}
+	body.ReportedOs = runtime.GOOS
+	if label := os.Getenv("HOST_LABEL"); label != "" {
+		body.HostLabel = label
+	}
+
+	if bootstrap := os.Getenv("BOOTSTRAP_TOKEN"); bootstrap != "" {
+		body.BootstrapToken = bootstrap
+		if workspaceID := os.Getenv("WORKSPACE_ID"); workspaceID != "" {
+			body.WorkspaceId = workspaceID
+		}
+		return body
+	}
+
+	body.Secret = os.Getenv("WORKER_SECRET")
+	body.WorkspaceId = os.Getenv("WORKSPACE_ID")
+	return body
+}
+
+func resolveDockerNetwork() string {
+	if network := os.Getenv("DOCKER_NETWORK"); network != "" {
+		return network
+	}
+	if os.Getenv("BOOTSTRAP_TOKEN") != "" {
+		return "bridge"
+	}
+	return "pipe_torv_worker_network"
 }
 
 func envOrDefault(key, def string) string {

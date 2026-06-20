@@ -270,12 +270,16 @@ func (*AgentRequest_HandleStageStart) isAgentRequest_Body() {}
 func (*AgentRequest_HandleStageFinish) isAgentRequest_Body() {}
 
 type RegisterBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
-	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	WorkspaceId   string                 `protobuf:"bytes,3,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Secret           string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`
+	Address          string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	WorkspaceId      string                 `protobuf:"bytes,3,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	HostLabel        string                 `protobuf:"bytes,4,opt,name=host_label,json=hostLabel,proto3" json:"host_label,omitempty"`
+	ReportedHostname string                 `protobuf:"bytes,5,opt,name=reported_hostname,json=reportedHostname,proto3" json:"reported_hostname,omitempty"`
+	ReportedOs       string                 `protobuf:"bytes,6,opt,name=reported_os,json=reportedOs,proto3" json:"reported_os,omitempty"`
+	BootstrapToken   string                 `protobuf:"bytes,7,opt,name=bootstrap_token,json=bootstrapToken,proto3" json:"bootstrap_token,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *RegisterBody) Reset() {
@@ -325,6 +329,34 @@ func (x *RegisterBody) GetAddress() string {
 func (x *RegisterBody) GetWorkspaceId() string {
 	if x != nil {
 		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *RegisterBody) GetHostLabel() string {
+	if x != nil {
+		return x.HostLabel
+	}
+	return ""
+}
+
+func (x *RegisterBody) GetReportedHostname() string {
+	if x != nil {
+		return x.ReportedHostname
+	}
+	return ""
+}
+
+func (x *RegisterBody) GetReportedOs() string {
+	if x != nil {
+		return x.ReportedOs
+	}
+	return ""
+}
+
+func (x *RegisterBody) GetBootstrapToken() string {
+	if x != nil {
+		return x.BootstrapToken
 	}
 	return ""
 }
@@ -510,13 +542,11 @@ func (x *HandleStageStartBody) GetMessage() string {
 }
 
 type HandleStageFinishBody struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	StageRunId string                 `protobuf:"bytes,1,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
-	Status     int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
-	Error      string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	// Raw JSON-encoded outputs object emitted by the stage's `result` event.
-	// Empty when the stage produced no outputs.
-	OutputsJson   string `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3" json:"outputs_json,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StageRunId    string                 `protobuf:"bytes,1,opt,name=stage_run_id,json=stageRunId,proto3" json:"stage_run_id,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	OutputsJson   string                 `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3" json:"outputs_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -953,11 +983,17 @@ const file_proto_agent_proto_rawDesc = "" +
 	"\x11stage_run_message\x18\x04 \x01(\v2\x1a.agent.StageRunMessageBodyH\x00R\x0fstageRunMessage\x12K\n" +
 	"\x12handle_stage_start\x18\x05 \x01(\v2\x1b.agent.HandleStageStartBodyH\x00R\x10handleStageStart\x12N\n" +
 	"\x13handle_stage_finish\x18\x06 \x01(\v2\x1c.agent.HandleStageFinishBodyH\x00R\x11handleStageFinishB\x06\n" +
-	"\x04body\"c\n" +
+	"\x04body\"\xf9\x01\n" +
 	"\fRegisterBody\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12!\n" +
-	"\fworkspace_id\x18\x03 \x01(\tR\vworkspaceId\"D\n" +
+	"\fworkspace_id\x18\x03 \x01(\tR\vworkspaceId\x12\x1d\n" +
+	"\n" +
+	"host_label\x18\x04 \x01(\tR\thostLabel\x12+\n" +
+	"\x11reported_hostname\x18\x05 \x01(\tR\x10reportedHostname\x12\x1f\n" +
+	"\vreported_os\x18\x06 \x01(\tR\n" +
+	"reportedOs\x12'\n" +
+	"\x0fbootstrap_token\x18\a \x01(\tR\x0ebootstrapToken\"D\n" +
 	"\rHeartbeatBody\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\"\x84\x01\n" +
