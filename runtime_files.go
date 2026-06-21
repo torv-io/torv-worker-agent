@@ -17,55 +17,55 @@ func runtimeDataDir() string {
 	return os.TempDir()
 }
 
-func prepareStageRuntime(stageRunId, paramsJSON, inputsPresignedURL string) (paramsPath, inputsPath string, err error) {
+func validateParamsJSON(paramsJSON string) error {
 	paramsJSON = strings.TrimSpace(paramsJSON)
 	if paramsJSON == "" {
-		return "", "", fmt.Errorf("params_json missing on work item")
+		return fmt.Errorf("params_json missing on work item")
 	}
-	var paramsCheck map[string]json.RawMessage
-	if unmarshalErr := json.Unmarshal([]byte(paramsJSON), &paramsCheck); unmarshalErr != nil {
-		return "", "", fmt.Errorf("params_json is not valid JSON object: %w", unmarshalErr)
+	var params map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(paramsJSON), &params); err != nil {
+		return fmt.Errorf("params_json is not valid JSON object: %w", err)
 	}
+	return nil
+}
 
+// prepareStageInputs downloads upstream inputs to a host-visible path for bind-mounting.
+// Params are not written to disk — they are injected into the stage container from gRPC via TORV_PARAMS_JSON.
+func prepareStageInputs(stageRunId, inputsPresignedURL string) (inputsPath string, err error) {
 	runDir := filepath.Join(runtimeDataDir(), stageRunId)
 	if err := os.MkdirAll(runDir, 0o700); err != nil {
-		return "", "", fmt.Errorf("create runtime dir: %w", err)
+		return "", fmt.Errorf("create runtime dir: %w", err)
 	}
-	paramsPath = filepath.Join(runDir, "params.json")
 	inputsPath = filepath.Join(runDir, "inputs.json")
-
-	if err := os.WriteFile(paramsPath, []byte(paramsJSON), 0o600); err != nil {
-		return "", "", fmt.Errorf("write params file: %w", err)
-	}
 
 	inputsPresignedURL = strings.TrimSpace(inputsPresignedURL)
 	if inputsPresignedURL == "" {
 		if err := os.WriteFile(inputsPath, []byte("{}"), 0o600); err != nil {
-			return "", "", fmt.Errorf("write empty inputs file: %w", err)
+			return "", fmt.Errorf("write empty inputs file: %w", err)
 		}
-		return paramsPath, inputsPath, nil
+		return inputsPath, nil
 	}
 
 	resp, err := http.Get(inputsPresignedURL)
 	if err != nil {
-		return "", "", fmt.Errorf("download inputs: %w", err)
+		return "", fmt.Errorf("download inputs: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("download inputs: HTTP %d", resp.StatusCode)
+		return "", fmt.Errorf("download inputs: HTTP %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", fmt.Errorf("read inputs body: %w", err)
+		return "", fmt.Errorf("read inputs body: %w", err)
 	}
 	var inputsCheck map[string]json.RawMessage
 	if unmarshalErr := json.Unmarshal(body, &inputsCheck); unmarshalErr != nil {
-		return "", "", fmt.Errorf("inputs blob is not valid JSON object: %w", unmarshalErr)
+		return "", fmt.Errorf("inputs blob is not valid JSON object: %w", unmarshalErr)
 	}
 	if err := os.WriteFile(inputsPath, body, 0o600); err != nil {
-		return "", "", fmt.Errorf("write inputs file: %w", err)
+		return "", fmt.Errorf("write inputs file: %w", err)
 	}
-	return paramsPath, inputsPath, nil
+	return inputsPath, nil
 }
 
 func removeStageRuntimeDir(stageRunId string) {

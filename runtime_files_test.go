@@ -5,31 +5,24 @@ import (
 	"testing"
 )
 
-func TestPrepareStageRuntimeWritesParamsFromGrpc(t *testing.T) {
-	t.Setenv("TORV_RUNTIME_DIR", t.TempDir())
+func TestValidateParamsJSON(t *testing.T) {
+	if err := validateParamsJSON(`{"accessKeyId":"AKIA"}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateParamsJSON(""); err == nil {
+		t.Fatal("expected error for empty params")
+	}
+}
 
-	paramsJSON := `{"accessKeyId":"AKIA","secretAccessKey":"secret"}`
-	pp, ip, err := prepareStageRuntime("run1", paramsJSON, "")
+func TestPrepareStageInputsEmptyURL(t *testing.T) {
+	t.Setenv("TORV_RUNTIME_DIR", t.TempDir())
+	path, err := prepareStageInputs("run1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer removeStageRuntimeDir("run1")
-
-	pb, _ := os.ReadFile(pp)
-	if string(pb) != paramsJSON {
-		t.Fatalf("params file = %q, want %q", pb, paramsJSON)
-	}
-	ib, _ := os.ReadFile(ip)
-	if string(ib) != "{}" {
-		t.Fatalf("inputs file = %q, want {}", ib)
-	}
-}
-
-func TestPrepareStageRuntimeRejectsMissingParams(t *testing.T) {
-	t.Setenv("TORV_RUNTIME_DIR", t.TempDir())
-
-	_, _, err := prepareStageRuntime("run2", "", "")
-	if err == nil {
-		t.Fatal("expected error for missing params_json")
+	body, _ := os.ReadFile(path)
+	if string(body) != "{}" {
+		t.Fatalf("got %q", body)
 	}
 }

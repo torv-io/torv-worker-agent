@@ -113,7 +113,14 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		return
 	}
 
-	exitCode, captured, err := e.runContainer(stageRunId, stageId, image, wi)
+	paramsJSON := wi.GetParamsJson()
+	if err := validateParamsJSON(paramsJSON); err != nil {
+		e.sendLog(stageRunId, "error", err.Error())
+		e.sendStageFinish(stageRunId, 1, err.Error(), "")
+		return
+	}
+
+	exitCode, captured, err := e.runContainer(stageRunId, stageId, image, wi, paramsJSON)
 	if err != nil {
 		e.sendLog(stageRunId, "error", fmt.Sprintf("Container execution failed: %v", err))
 		e.sendStageFinish(stageRunId, 1, err.Error(), "")
@@ -144,22 +151,22 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 	e.sendStageFinish(stageRunId, int32(exitCode), reason, "")
 }
 
-func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.WorkItemBody) (int, streamCaptured, error) {
+func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.WorkItemBody, paramsJSON string) (int, streamCaptured, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	containerName := fmt.Sprintf("stage-run-%s", stageRunId)
 
-	paramsPath, inputsPath, err := prepareStageRuntime(stageRunId, wi.GetParamsJson(), wi.GetInputsPresignedUrl())
+	inputsPath, err := prepareStageInputs(stageRunId, wi.GetInputsPresignedUrl())
 	if err != nil {
-		return -1, streamCaptured{}, fmt.Errorf("prepare stage runtime: %w", err)
+		return -1, streamCaptured{}, fmt.Errorf("prepare stage inputs: %w", err)
 	}
 	defer removeStageRuntimeDir(stageRunId)
 
 	env := []string{
 		"CODE_PRESIGNED_URL=" + wi.GetCodePresignedUrl(),
 		"CONFIG_PRESIGNED_URL=" + wi.GetConfigPresignedUrl(),
-		"PARAMS_FILE=/torv/params.json",
+		"TORV_PARAMS_JSON=" + paramsJSON,
 		"INPUTS_FILE=/torv/inputs.json",
 		"STAGE_ID=" + stageId,
 		"STAGE_RUN_ID=" + stageRunId,
@@ -178,7 +185,6 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 
 	hostCfg := &container.HostConfig{
 		Binds: []string{
-			paramsPath + ":/torv/params.json:ro",
 			inputsPath + ":/torv/inputs.json:ro",
 		},
 	}
