@@ -178,10 +178,7 @@ func resolveDockerNetwork() string {
 	if network := os.Getenv("DOCKER_NETWORK"); network != "" {
 		return network
 	}
-	if os.Getenv("BOOTSTRAP_TOKEN") != "" {
-		return "bridge"
-	}
-	return "pipe_torv_worker_network"
+	return "torv_worker_network"
 }
 
 func envOrDefault(key, def string) string {

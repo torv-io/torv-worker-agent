@@ -119,6 +119,7 @@ func (e *Executor) HandleWorkItem(wi *agent.WorkItemBody) {
 		e.sendStageFinish(stageRunId, 1, err.Error(), "")
 		return
 	}
+	log.Printf("[%s] params_json bytes=%d", stageRunId, len(paramsJSON))
 
 	exitCode, captured, err := e.runContainer(stageRunId, stageId, image, wi, paramsJSON)
 	if err != nil {
@@ -155,6 +156,8 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	var captured streamCaptured
+
 	containerName := fmt.Sprintf("stage-run-%s", stageRunId)
 
 	env := []string{
@@ -174,18 +177,20 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
-		Cmd: []string{"/bin/sh", "/app/bootstrap.sh"},
+		Cmd:          []string{"/bin/sh", "/app/bootstrap.sh"},
 	}
 
 	hostCfg := &container.HostConfig{}
-
-	networkCfg := &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			e.networkName: {},
-		},
+	var networkCfg *network.NetworkingConfig
+	if e.networkName == "bridge" {
+		hostCfg.NetworkMode = "bridge"
+	} else {
+		networkCfg = &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				e.networkName: {},
+			},
+		}
 	}
-
-	var captured streamCaptured
 
 	created, err := e.docker.ContainerCreate(ctx, containerCfg, hostCfg, networkCfg, nil, containerName)
 	if err != nil {
