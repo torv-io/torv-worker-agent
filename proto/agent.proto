@@ -110,4 +110,7 @@ message WorkItemBody {
   string code_presigned_url = 4;
   string config_presigned_url = 5;
   string context_json = 6;
+  // Params are sent separately so large upstream inputs cannot break credential delivery.
+  string params_json = 7;
+  string inputs_json = 8;
 }

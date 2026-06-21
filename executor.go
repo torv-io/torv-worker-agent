@@ -151,18 +151,25 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 
 	containerName := fmt.Sprintf("stage-run-%s", stageRunId)
 
+	paramsPath, inputsPath, err := writeStageRuntimeFiles(
+		stageRunId,
+		wi.GetContextJson(),
+		wi.GetParamsJson(),
+		wi.GetInputsJson(),
+	)
+	if err != nil {
+		return -1, streamCaptured{}, fmt.Errorf("write runtime files: %w", err)
+	}
+	defer os.Remove(paramsPath)
+	defer os.Remove(inputsPath)
+
 	env := []string{
 		"CODE_PRESIGNED_URL=" + wi.GetCodePresignedUrl(),
 		"CONFIG_PRESIGNED_URL=" + wi.GetConfigPresignedUrl(),
-		"CONTEXT_JSON=" + wi.GetContextJson(),
+		"PARAMS_FILE=/torv/params.json",
+		"INPUTS_FILE=/torv/inputs.json",
 		"STAGE_ID=" + stageId,
 		"STAGE_RUN_ID=" + stageRunId,
-	}
-	if v := os.Getenv("ORCHESTRATOR_HTTP_URL"); v != "" {
-		env = append(env, "ORCHESTRATOR_HTTP_URL="+v)
-	}
-	if v := os.Getenv("WORKER_SECRET"); v != "" {
-		env = append(env, "WORKER_SECRET="+v)
 	}
 
 	containerCfg := &container.Config{
@@ -176,7 +183,12 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 		Cmd: []string{"/bin/sh", "/app/bootstrap.sh"},
 	}
 
-	hostCfg := &container.HostConfig{}
+	hostCfg := &container.HostConfig{
+		Binds: []string{
+			paramsPath + ":/torv/params.json:ro",
+			inputsPath + ":/torv/inputs.json:ro",
+		},
+	}
 
 	networkCfg := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
