@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -151,17 +150,11 @@ func (e *Executor) runContainer(stageRunId, stageId, image string, wi *agent.Wor
 
 	containerName := fmt.Sprintf("stage-run-%s", stageRunId)
 
-	paramsPath, inputsPath, err := writeStageRuntimeFiles(
-		stageRunId,
-		wi.GetContextJson(),
-		wi.GetParamsJson(),
-		wi.GetInputsJson(),
-	)
+	paramsPath, inputsPath, err := prepareStageRuntime(stageRunId, wi.GetParamsJson(), wi.GetInputsPresignedUrl())
 	if err != nil {
-		return -1, streamCaptured{}, fmt.Errorf("write runtime files: %w", err)
+		return -1, streamCaptured{}, fmt.Errorf("prepare stage runtime: %w", err)
 	}
-	defer os.Remove(paramsPath)
-	defer os.Remove(inputsPath)
+	defer removeStageRuntimeDir(stageRunId)
 
 	env := []string{
 		"CODE_PRESIGNED_URL=" + wi.GetCodePresignedUrl(),

@@ -109,8 +109,8 @@ message WorkItemBody {
   string runner_type = 3;
   string code_presigned_url = 4;
   string config_presigned_url = 5;
-  string context_json = 6;
-  // Params are sent separately so large upstream inputs cannot break credential delivery.
+  reserved 6;
+  reserved "context_json";
   string params_json = 7;
-  string inputs_json = 8;
+  string inputs_presigned_url = 8;
 }
