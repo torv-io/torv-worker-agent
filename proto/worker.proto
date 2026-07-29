@@ -1,29 +1,78 @@
 syntax = "proto3";
 
-package proto;
+package worker;
 
 option go_package = "torv.io/worker-agent/proto";
 
 service WorkerService {
-  rpc ExecuteStageRun(ExecuteStageRunRequest) returns (ExecuteStageRunResponse);
+  rpc Subscribe(stream WorkerMessage) returns (stream OrchestratorMessage);
 }
 
-message ExecuteStageRunRequest {
-  string stage_id = 1;
-  string stage_run_id = 2;
-  string code = 3;
-  string context = 4;
-  string stage_config = 5;
+// ── worker → orchestrator ──
+message WorkerMessage {
+  string worker_id = 1;
+  oneof body {
+    Session session = 2;
+    Heartbeat heartbeat = 3;
+    RunEvent run_event = 4;
+  }
 }
 
-message ExecuteStageRunResponse {
-  Status status = 1;
+message Session {
+  string workspace_id = 1;
+  string token = 2;
+}
+
+message Heartbeat {
+  string status = 1;
+}
+
+message RunEvent {
+  string run_id = 1;
+  oneof kind {
+    RunLog log = 2;
+    RunResult result = 3;
+  }
+}
+
+message RunLog {
+  string level = 1;
+  string message = 2;
+}
+
+message RunResult {
+  bool success = 1;
+  int32 exit_code = 2;
+  string error = 3;
+  string outputs_json = 4;
+}
+
+// ── orchestrator → worker ──
+message OrchestratorMessage {
+  oneof body {
+    SessionReady session = 1;
+    RunDispatch dispatch = 2;
+    RunAbort abort = 3;
+  }
+}
+
+message SessionReady {
+  string worker_id = 1;
   string error = 2;
-  map<string, string> outputs = 3;
 }
 
-enum Status {
-  UNSPECIFIED = 0;
-  EXECUTED = 1;
-  FAILED = 2;
+message RunDispatch {
+  string run_id = 1;
+  string stage_id = 2;
+  string runner_id = 3;
+  string runner_type = 4;
+  string code_url = 5;
+  string config_url = 6;
+  string params_json = 7;
+  string inputs_url = 8;
+}
+
+message RunAbort {
+  string run_id = 1;
+  string reason = 2;
 }

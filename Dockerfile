@@ -1,8 +1,8 @@
 # Build stage
 FROM golang:1.24-alpine AS builder
 
-# git/ca-certificates are needed for Go module downloads. The protobuf code is committed
-# under proto/ (agent.pb.go, agent_grpc.pb.go), so we do not install protoc or regenerate it.
+# git/ca-certificates are needed for Go module downloads. Proto bindings are committed
+# under proto/ (worker.pb.go, worker_grpc.pb.go); regenerate with `make proto`.
 RUN apk add --no-cache git ca-certificates
 
 WORKDIR /build
