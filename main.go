@@ -79,12 +79,16 @@ func main() {
 	}
 	defer dockerClient.Close()
 
+	hostname, _ := os.Hostname()
 	executor := &Executor{
-		docker:   dockerClient,
-		stream:   stream,
-		workerID: workerID,
-		image:    envOrDefault("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:main"),
-		network:  envOrDefault("DOCKER_NETWORK", "torv_worker_network"),
+		docker:        dockerClient,
+		stream:        stream,
+		workerID:      workerID,
+		image:         envOrDefault("NODE_WORKER_AGENT_IMAGE", "ghcr.io/torv-io/torv-node-worker-agent:main"),
+		network:       envOrDefault("DOCKER_NETWORK", "torv_worker_network"),
+		dataRoot:      envOrDefault("TORV_DATA_ROOT", "/data"),
+		workspaceID:   os.Getenv("WORKSPACE_ID"),
+		computeHostID: envOrDefault("COMPUTE_HOST_ID", hostname),
 	}
 
 	go func() {

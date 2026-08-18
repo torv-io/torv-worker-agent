@@ -41,10 +41,10 @@ message RunLog {
 }
 
 message RunResult {
-  bool success = 1;
-  int32 exit_code = 2;
-  string error = 3;
-  string outputs_json = 4;
+  string status = 1;
+  int32 code = 2;
+  optional string error = 3;
+  optional string outputs_json = 4;
 }
 
 // ── orchestrator → worker ──

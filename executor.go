@@ -18,11 +18,14 @@ import (
 )
 
 type Executor struct {
-	docker   *client.Client
-	stream   pb.WorkerService_SubscribeClient
-	workerID string
-	image    string
-	network  string
+	docker        *client.Client
+	stream        pb.WorkerService_SubscribeClient
+	workerID      string
+	image         string
+	network       string
+	dataRoot      string
+	workspaceID   string
+	computeHostID string
 }
 
 type stdoutLine struct {
@@ -47,36 +50,43 @@ func (e *Executor) HandleDispatch(dispatch *pb.RunDispatch) {
 	defer setStatus("idle")
 
 	if strings.ToLower(dispatch.GetRunnerType()) != "node" {
-		e.sendResult(runID, false, 1, fmt.Sprintf("unsupported runner_type: %s", dispatch.GetRunnerType()), "")
+		e.sendResult(runID, "failed", 1, fmt.Sprintf("unsupported runner_type: %s", dispatch.GetRunnerType()), "")
 		return
 	}
 	if dispatch.GetCodeUrl() == "" || dispatch.GetConfigUrl() == "" {
-		e.sendResult(runID, false, 1, "missing code_url or config_url", "")
+		e.sendResult(runID, "failed", 1, "missing code_url or config_url", "")
 		return
 	}
 	if err := validateParamsJSON(dispatch.GetParamsJson()); err != nil {
-		e.sendResult(runID, false, 1, err.Error(), "")
+		e.sendResult(runID, "failed", 1, err.Error(), "")
 		return
 	}
 
 	exitCode, captured, err := e.runContainer(dispatch)
 	if err != nil {
-		e.sendResult(runID, false, 1, err.Error(), "")
+		e.sendResult(runID, "failed", 1, err.Error(), "")
 		return
 	}
 	if captured.resultSeen {
-		outputs := captured.resultOutputs
-		if outputs == "" {
-			outputs = "{}"
+		status := "failed"
+		outputsJSON := ""
+		if captured.resultSuccess {
+			status = "EXECUTED"
+			manifest, err := writeOutputArtifacts(e.dataRoot, e.workspaceID, runID, e.computeHostID, captured.resultOutputs)
+			if err != nil {
+				e.sendResult(runID, "failed", int32(exitCode), err.Error(), "")
+				return
+			}
+			outputsJSON = manifest
 		}
-		e.sendResult(runID, captured.resultSuccess, int32(exitCode), captured.resultError, outputs)
+		e.sendResult(runID, status, int32(exitCode), captured.resultError, outputsJSON)
 		return
 	}
 	reason := ""
 	if exitCode != 0 {
 		reason = fmt.Sprintf("container exited with status %d", exitCode)
 	}
-	e.sendResult(runID, false, int32(exitCode), reason, "")
+	e.sendResult(runID, "failed", int32(exitCode), reason, "")
 }
 
 func (e *Executor) runContainer(dispatch *pb.RunDispatch) (int, streamCaptured, error) {
@@ -208,8 +218,15 @@ func (e *Executor) sendLog(runID, level, message string) {
 	})
 }
 
-func (e *Executor) sendResult(runID string, success bool, exitCode int32, errMsg, outputsJSON string) {
-	log.Printf("[%s] result success=%v exit=%d error=%q", runID, success, exitCode, errMsg)
+func optStr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func (e *Executor) sendResult(runID, status string, code int32, errMsg, outputsJSON string) {
+	log.Printf("[%s] result status=%s code=%d error=%q", runID, status, code, errMsg)
 	_ = e.stream.Send(&pb.WorkerMessage{
 		WorkerId: e.workerID,
 		Body: &pb.WorkerMessage_RunEvent{
@@ -217,10 +234,10 @@ func (e *Executor) sendResult(runID string, success bool, exitCode int32, errMsg
 				RunId: runID,
 				Kind: &pb.RunEvent_Result{
 					Result: &pb.RunResult{
-						Success:     success,
-						ExitCode:    exitCode,
-						Error:       errMsg,
-						OutputsJson: outputsJSON,
+						Status:      status,
+						Code:        code,
+						Error:       optStr(errMsg),
+						OutputsJson: optStr(outputsJSON),
 					},
 				},
 			},

@@ -368,10 +368,10 @@ func (x *RunLog) GetMessage() string {
 
 type RunResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ExitCode      int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	OutputsJson   string                 `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3" json:"outputs_json,omitempty"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	Code          int32                  `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
+	Error         *string                `protobuf:"bytes,3,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	OutputsJson   *string                `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3,oneof" json:"outputs_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -406,30 +406,30 @@ func (*RunResult) Descriptor() ([]byte, []int) {
 	return file_proto_worker_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *RunResult) GetSuccess() bool {
+func (x *RunResult) GetStatus() string {
 	if x != nil {
-		return x.Success
+		return x.Status
 	}
-	return false
+	return ""
 }
 
-func (x *RunResult) GetExitCode() int32 {
+func (x *RunResult) GetCode() int32 {
 	if x != nil {
-		return x.ExitCode
+		return x.Code
 	}
 	return 0
 }
 
 func (x *RunResult) GetError() string {
-	if x != nil {
-		return x.Error
+	if x != nil && x.Error != nil {
+		return *x.Error
 	}
 	return ""
 }
 
 func (x *RunResult) GetOutputsJson() string {
-	if x != nil {
-		return x.OutputsJson
+	if x != nil && x.OutputsJson != nil {
+		return *x.OutputsJson
 	}
 	return ""
 }
@@ -760,12 +760,14 @@ const file_proto_worker_proto_rawDesc = "" +
 	"\x04kind\"8\n" +
 	"\x06RunLog\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\tR\x05level\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"{\n" +
-	"\tRunResult\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1b\n" +
-	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\x12!\n" +
-	"\foutputs_json\x18\x04 \x01(\tR\voutputsJson\"\xac\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x95\x01\n" +
+	"\tRunResult\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x19\n" +
+	"\x05error\x18\x03 \x01(\tH\x00R\x05error\x88\x01\x01\x12&\n" +
+	"\foutputs_json\x18\x04 \x01(\tH\x01R\voutputsJson\x88\x01\x01B\b\n" +
+	"\x06_errorB\x0f\n" +
+	"\r_outputs_json\"\xac\x01\n" +
 	"\x13OrchestratorMessage\x120\n" +
 	"\asession\x18\x01 \x01(\v2\x14.worker.SessionReadyH\x00R\asession\x121\n" +
 	"\bdispatch\x18\x02 \x01(\v2\x13.worker.RunDispatchH\x00R\bdispatch\x12(\n" +
@@ -850,6 +852,7 @@ func file_proto_worker_proto_init() {
 		(*RunEvent_Log)(nil),
 		(*RunEvent_Result)(nil),
 	}
+	file_proto_worker_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_worker_proto_msgTypes[6].OneofWrappers = []any{
 		(*OrchestratorMessage_Session)(nil),
 		(*OrchestratorMessage_Dispatch)(nil),
