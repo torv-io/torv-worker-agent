@@ -207,13 +207,8 @@ func (e *Executor) sendLog(runID, level, message string) {
 	log.Printf("[%s] [%s] %s", runID, level, message)
 	_ = e.stream.Send(&pb.WorkerMessage{
 		WorkerId: e.workerID,
-		Body: &pb.WorkerMessage_RunEvent{
-			RunEvent: &pb.RunEvent{
-				RunId: runID,
-				Kind: &pb.RunEvent_Log{
-					Log: &pb.RunLog{Level: level, Message: message},
-				},
-			},
+		Type: &pb.WorkerMessage_Log{
+			Log: &pb.RunLog{RunId: runID, Level: level, Message: message},
 		},
 	})
 }
@@ -229,17 +224,13 @@ func (e *Executor) sendResult(runID, status string, code int32, errMsg, outputsJ
 	log.Printf("[%s] result status=%s code=%d error=%q", runID, status, code, errMsg)
 	_ = e.stream.Send(&pb.WorkerMessage{
 		WorkerId: e.workerID,
-		Body: &pb.WorkerMessage_RunEvent{
-			RunEvent: &pb.RunEvent{
-				RunId: runID,
-				Kind: &pb.RunEvent_Result{
-					Result: &pb.RunResult{
-						Status:      status,
-						Code:        code,
-						Error:       optStr(errMsg),
-						OutputsJson: optStr(outputsJSON),
-					},
-				},
+		Type: &pb.WorkerMessage_Result{
+			Result: &pb.RunResult{
+				RunId:       runID,
+				Status:      status,
+				Code:        code,
+				Error:       optStr(errMsg),
+				OutputsJson: optStr(outputsJSON),
 			},
 		},
 	})

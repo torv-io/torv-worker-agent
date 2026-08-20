@@ -11,10 +11,11 @@ service WorkerService {
 // ── worker → orchestrator ──
 message WorkerMessage {
   string worker_id = 1;
-  oneof body {
+  oneof type {
     Session session = 2;
     Heartbeat heartbeat = 3;
-    RunEvent run_event = 4;
+    RunLog log = 5;
+    RunResult result = 6;
   }
 }
 
@@ -27,24 +28,18 @@ message Heartbeat {
   string status = 1;
 }
 
-message RunEvent {
-  string run_id = 1;
-  oneof kind {
-    RunLog log = 2;
-    RunResult result = 3;
-  }
-}
-
 message RunLog {
-  string level = 1;
-  string message = 2;
+  string run_id = 1;
+  string level = 2;
+  string message = 3;
 }
 
 message RunResult {
-  string status = 1;
-  int32 code = 2;
-  optional string error = 3;
-  optional string outputs_json = 4;
+  string run_id = 1;
+  string status = 2;
+  int32 code = 3;
+  optional string error = 4;
+  optional string outputs_json = 5;
 }
 
 // ── orchestrator → worker ──

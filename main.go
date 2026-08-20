@@ -52,7 +52,7 @@ func main() {
 	}
 
 	if err := stream.Send(&pb.WorkerMessage{
-		Body: &pb.WorkerMessage_Session{
+		Type: &pb.WorkerMessage_Session{
 			Session: &pb.Session{
 				WorkspaceId: os.Getenv("WORKSPACE_ID"),
 				Token:       os.Getenv("WORKER_SECRET"),
@@ -111,7 +111,7 @@ func main() {
 	for {
 		if err := stream.Send(&pb.WorkerMessage{
 			WorkerId: workerID,
-			Body: &pb.WorkerMessage_Heartbeat{
+			Type: &pb.WorkerMessage_Heartbeat{
 				Heartbeat: &pb.Heartbeat{Status: getStatus()},
 			},
 		}); err != nil {

@@ -25,12 +25,13 @@ const (
 type WorkerMessage struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	WorkerId string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
-	// Types that are valid to be assigned to Body:
+	// Types that are valid to be assigned to Type:
 	//
 	//	*WorkerMessage_Session
 	//	*WorkerMessage_Heartbeat
-	//	*WorkerMessage_RunEvent
-	Body          isWorkerMessage_Body `protobuf_oneof:"body"`
+	//	*WorkerMessage_Log
+	//	*WorkerMessage_Result
+	Type          isWorkerMessage_Type `protobuf_oneof:"type"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -72,16 +73,16 @@ func (x *WorkerMessage) GetWorkerId() string {
 	return ""
 }
 
-func (x *WorkerMessage) GetBody() isWorkerMessage_Body {
+func (x *WorkerMessage) GetType() isWorkerMessage_Type {
 	if x != nil {
-		return x.Body
+		return x.Type
 	}
 	return nil
 }
 
 func (x *WorkerMessage) GetSession() *Session {
 	if x != nil {
-		if x, ok := x.Body.(*WorkerMessage_Session); ok {
+		if x, ok := x.Type.(*WorkerMessage_Session); ok {
 			return x.Session
 		}
 	}
@@ -90,24 +91,33 @@ func (x *WorkerMessage) GetSession() *Session {
 
 func (x *WorkerMessage) GetHeartbeat() *Heartbeat {
 	if x != nil {
-		if x, ok := x.Body.(*WorkerMessage_Heartbeat); ok {
+		if x, ok := x.Type.(*WorkerMessage_Heartbeat); ok {
 			return x.Heartbeat
 		}
 	}
 	return nil
 }
 
-func (x *WorkerMessage) GetRunEvent() *RunEvent {
+func (x *WorkerMessage) GetLog() *RunLog {
 	if x != nil {
-		if x, ok := x.Body.(*WorkerMessage_RunEvent); ok {
-			return x.RunEvent
+		if x, ok := x.Type.(*WorkerMessage_Log); ok {
+			return x.Log
 		}
 	}
 	return nil
 }
 
-type isWorkerMessage_Body interface {
-	isWorkerMessage_Body()
+func (x *WorkerMessage) GetResult() *RunResult {
+	if x != nil {
+		if x, ok := x.Type.(*WorkerMessage_Result); ok {
+			return x.Result
+		}
+	}
+	return nil
+}
+
+type isWorkerMessage_Type interface {
+	isWorkerMessage_Type()
 }
 
 type WorkerMessage_Session struct {
@@ -118,15 +128,21 @@ type WorkerMessage_Heartbeat struct {
 	Heartbeat *Heartbeat `protobuf:"bytes,3,opt,name=heartbeat,proto3,oneof"`
 }
 
-type WorkerMessage_RunEvent struct {
-	RunEvent *RunEvent `protobuf:"bytes,4,opt,name=run_event,json=runEvent,proto3,oneof"`
+type WorkerMessage_Log struct {
+	Log *RunLog `protobuf:"bytes,5,opt,name=log,proto3,oneof"`
 }
 
-func (*WorkerMessage_Session) isWorkerMessage_Body() {}
+type WorkerMessage_Result struct {
+	Result *RunResult `protobuf:"bytes,6,opt,name=result,proto3,oneof"`
+}
 
-func (*WorkerMessage_Heartbeat) isWorkerMessage_Body() {}
+func (*WorkerMessage_Session) isWorkerMessage_Type() {}
 
-func (*WorkerMessage_RunEvent) isWorkerMessage_Body() {}
+func (*WorkerMessage_Heartbeat) isWorkerMessage_Type() {}
+
+func (*WorkerMessage_Log) isWorkerMessage_Type() {}
+
+func (*WorkerMessage_Result) isWorkerMessage_Type() {}
 
 type Session struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -224,107 +240,18 @@ func (x *Heartbeat) GetStatus() string {
 	return ""
 }
 
-type RunEvent struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	RunId string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	// Types that are valid to be assigned to Kind:
-	//
-	//	*RunEvent_Log
-	//	*RunEvent_Result
-	Kind          isRunEvent_Kind `protobuf_oneof:"kind"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RunEvent) Reset() {
-	*x = RunEvent{}
-	mi := &file_proto_worker_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RunEvent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RunEvent) ProtoMessage() {}
-
-func (x *RunEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RunEvent.ProtoReflect.Descriptor instead.
-func (*RunEvent) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RunEvent) GetRunId() string {
-	if x != nil {
-		return x.RunId
-	}
-	return ""
-}
-
-func (x *RunEvent) GetKind() isRunEvent_Kind {
-	if x != nil {
-		return x.Kind
-	}
-	return nil
-}
-
-func (x *RunEvent) GetLog() *RunLog {
-	if x != nil {
-		if x, ok := x.Kind.(*RunEvent_Log); ok {
-			return x.Log
-		}
-	}
-	return nil
-}
-
-func (x *RunEvent) GetResult() *RunResult {
-	if x != nil {
-		if x, ok := x.Kind.(*RunEvent_Result); ok {
-			return x.Result
-		}
-	}
-	return nil
-}
-
-type isRunEvent_Kind interface {
-	isRunEvent_Kind()
-}
-
-type RunEvent_Log struct {
-	Log *RunLog `protobuf:"bytes,2,opt,name=log,proto3,oneof"`
-}
-
-type RunEvent_Result struct {
-	Result *RunResult `protobuf:"bytes,3,opt,name=result,proto3,oneof"`
-}
-
-func (*RunEvent_Log) isRunEvent_Kind() {}
-
-func (*RunEvent_Result) isRunEvent_Kind() {}
-
 type RunLog struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Level         string                 `protobuf:"bytes,1,opt,name=level,proto3" json:"level,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Level         string                 `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunLog) Reset() {
 	*x = RunLog{}
-	mi := &file_proto_worker_proto_msgTypes[4]
+	mi := &file_proto_worker_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -336,7 +263,7 @@ func (x *RunLog) String() string {
 func (*RunLog) ProtoMessage() {}
 
 func (x *RunLog) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[4]
+	mi := &file_proto_worker_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -349,7 +276,14 @@ func (x *RunLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunLog.ProtoReflect.Descriptor instead.
 func (*RunLog) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{4}
+	return file_proto_worker_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RunLog) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 func (x *RunLog) GetLevel() string {
@@ -368,17 +302,18 @@ func (x *RunLog) GetMessage() string {
 
 type RunResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	Code          int32                  `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
-	Error         *string                `protobuf:"bytes,3,opt,name=error,proto3,oneof" json:"error,omitempty"`
-	OutputsJson   *string                `protobuf:"bytes,4,opt,name=outputs_json,json=outputsJson,proto3,oneof" json:"outputs_json,omitempty"`
+	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Code          int32                  `protobuf:"varint,3,opt,name=code,proto3" json:"code,omitempty"`
+	Error         *string                `protobuf:"bytes,4,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	OutputsJson   *string                `protobuf:"bytes,5,opt,name=outputs_json,json=outputsJson,proto3,oneof" json:"outputs_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunResult) Reset() {
 	*x = RunResult{}
-	mi := &file_proto_worker_proto_msgTypes[5]
+	mi := &file_proto_worker_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +325,7 @@ func (x *RunResult) String() string {
 func (*RunResult) ProtoMessage() {}
 
 func (x *RunResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[5]
+	mi := &file_proto_worker_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,7 +338,14 @@ func (x *RunResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunResult.ProtoReflect.Descriptor instead.
 func (*RunResult) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{5}
+	return file_proto_worker_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *RunResult) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 func (x *RunResult) GetStatus() string {
@@ -449,7 +391,7 @@ type OrchestratorMessage struct {
 
 func (x *OrchestratorMessage) Reset() {
 	*x = OrchestratorMessage{}
-	mi := &file_proto_worker_proto_msgTypes[6]
+	mi := &file_proto_worker_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +403,7 @@ func (x *OrchestratorMessage) String() string {
 func (*OrchestratorMessage) ProtoMessage() {}
 
 func (x *OrchestratorMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[6]
+	mi := &file_proto_worker_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +416,7 @@ func (x *OrchestratorMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrchestratorMessage.ProtoReflect.Descriptor instead.
 func (*OrchestratorMessage) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{6}
+	return file_proto_worker_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *OrchestratorMessage) GetBody() isOrchestratorMessage_Body {
@@ -543,7 +485,7 @@ type SessionReady struct {
 
 func (x *SessionReady) Reset() {
 	*x = SessionReady{}
-	mi := &file_proto_worker_proto_msgTypes[7]
+	mi := &file_proto_worker_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +497,7 @@ func (x *SessionReady) String() string {
 func (*SessionReady) ProtoMessage() {}
 
 func (x *SessionReady) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[7]
+	mi := &file_proto_worker_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +510,7 @@ func (x *SessionReady) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionReady.ProtoReflect.Descriptor instead.
 func (*SessionReady) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{7}
+	return file_proto_worker_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *SessionReady) GetWorkerId() string {
@@ -601,7 +543,7 @@ type RunDispatch struct {
 
 func (x *RunDispatch) Reset() {
 	*x = RunDispatch{}
-	mi := &file_proto_worker_proto_msgTypes[8]
+	mi := &file_proto_worker_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -613,7 +555,7 @@ func (x *RunDispatch) String() string {
 func (*RunDispatch) ProtoMessage() {}
 
 func (x *RunDispatch) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[8]
+	mi := &file_proto_worker_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -626,7 +568,7 @@ func (x *RunDispatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunDispatch.ProtoReflect.Descriptor instead.
 func (*RunDispatch) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{8}
+	return file_proto_worker_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RunDispatch) GetRunId() string {
@@ -695,7 +637,7 @@ type RunAbort struct {
 
 func (x *RunAbort) Reset() {
 	*x = RunAbort{}
-	mi := &file_proto_worker_proto_msgTypes[9]
+	mi := &file_proto_worker_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -707,7 +649,7 @@ func (x *RunAbort) String() string {
 func (*RunAbort) ProtoMessage() {}
 
 func (x *RunAbort) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_worker_proto_msgTypes[9]
+	mi := &file_proto_worker_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -720,7 +662,7 @@ func (x *RunAbort) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunAbort.ProtoReflect.Descriptor instead.
 func (*RunAbort) Descriptor() ([]byte, []int) {
-	return file_proto_worker_proto_rawDescGZIP(), []int{9}
+	return file_proto_worker_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *RunAbort) GetRunId() string {
@@ -741,31 +683,29 @@ var File_proto_worker_proto protoreflect.FileDescriptor
 
 const file_proto_worker_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/worker.proto\x12\x06worker\"\xc5\x01\n" +
+	"\x12proto/worker.proto\x12\x06worker\"\xe5\x01\n" +
 	"\rWorkerMessage\x12\x1b\n" +
 	"\tworker_id\x18\x01 \x01(\tR\bworkerId\x12+\n" +
 	"\asession\x18\x02 \x01(\v2\x0f.worker.SessionH\x00R\asession\x121\n" +
-	"\theartbeat\x18\x03 \x01(\v2\x11.worker.HeartbeatH\x00R\theartbeat\x12/\n" +
-	"\trun_event\x18\x04 \x01(\v2\x10.worker.RunEventH\x00R\brunEventB\x06\n" +
-	"\x04body\"B\n" +
+	"\theartbeat\x18\x03 \x01(\v2\x11.worker.HeartbeatH\x00R\theartbeat\x12\"\n" +
+	"\x03log\x18\x05 \x01(\v2\x0e.worker.RunLogH\x00R\x03log\x12+\n" +
+	"\x06result\x18\x06 \x01(\v2\x11.worker.RunResultH\x00R\x06resultB\x06\n" +
+	"\x04type\"B\n" +
 	"\aSession\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\"#\n" +
 	"\tHeartbeat\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"z\n" +
-	"\bRunEvent\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\"\n" +
-	"\x03log\x18\x02 \x01(\v2\x0e.worker.RunLogH\x00R\x03log\x12+\n" +
-	"\x06result\x18\x03 \x01(\v2\x11.worker.RunResultH\x00R\x06resultB\x06\n" +
-	"\x04kind\"8\n" +
-	"\x06RunLog\x12\x14\n" +
-	"\x05level\x18\x01 \x01(\tR\x05level\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x95\x01\n" +
-	"\tRunResult\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x19\n" +
-	"\x05error\x18\x03 \x01(\tH\x00R\x05error\x88\x01\x01\x12&\n" +
-	"\foutputs_json\x18\x04 \x01(\tH\x01R\voutputsJson\x88\x01\x01B\b\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"O\n" +
+	"\x06RunLog\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x14\n" +
+	"\x05level\x18\x02 \x01(\tR\x05level\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xac\x01\n" +
+	"\tRunResult\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x12\n" +
+	"\x04code\x18\x03 \x01(\x05R\x04code\x12\x19\n" +
+	"\x05error\x18\x04 \x01(\tH\x00R\x05error\x88\x01\x01\x12&\n" +
+	"\foutputs_json\x18\x05 \x01(\tH\x01R\voutputsJson\x88\x01\x01B\b\n" +
 	"\x06_errorB\x0f\n" +
 	"\r_outputs_json\"\xac\x01\n" +
 	"\x13OrchestratorMessage\x120\n" +
@@ -807,35 +747,33 @@ func file_proto_worker_proto_rawDescGZIP() []byte {
 	return file_proto_worker_proto_rawDescData
 }
 
-var file_proto_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_proto_worker_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_proto_worker_proto_goTypes = []any{
 	(*WorkerMessage)(nil),       // 0: worker.WorkerMessage
 	(*Session)(nil),             // 1: worker.Session
 	(*Heartbeat)(nil),           // 2: worker.Heartbeat
-	(*RunEvent)(nil),            // 3: worker.RunEvent
-	(*RunLog)(nil),              // 4: worker.RunLog
-	(*RunResult)(nil),           // 5: worker.RunResult
-	(*OrchestratorMessage)(nil), // 6: worker.OrchestratorMessage
-	(*SessionReady)(nil),        // 7: worker.SessionReady
-	(*RunDispatch)(nil),         // 8: worker.RunDispatch
-	(*RunAbort)(nil),            // 9: worker.RunAbort
+	(*RunLog)(nil),              // 3: worker.RunLog
+	(*RunResult)(nil),           // 4: worker.RunResult
+	(*OrchestratorMessage)(nil), // 5: worker.OrchestratorMessage
+	(*SessionReady)(nil),        // 6: worker.SessionReady
+	(*RunDispatch)(nil),         // 7: worker.RunDispatch
+	(*RunAbort)(nil),            // 8: worker.RunAbort
 }
 var file_proto_worker_proto_depIdxs = []int32{
 	1, // 0: worker.WorkerMessage.session:type_name -> worker.Session
 	2, // 1: worker.WorkerMessage.heartbeat:type_name -> worker.Heartbeat
-	3, // 2: worker.WorkerMessage.run_event:type_name -> worker.RunEvent
-	4, // 3: worker.RunEvent.log:type_name -> worker.RunLog
-	5, // 4: worker.RunEvent.result:type_name -> worker.RunResult
-	7, // 5: worker.OrchestratorMessage.session:type_name -> worker.SessionReady
-	8, // 6: worker.OrchestratorMessage.dispatch:type_name -> worker.RunDispatch
-	9, // 7: worker.OrchestratorMessage.abort:type_name -> worker.RunAbort
-	0, // 8: worker.WorkerService.Subscribe:input_type -> worker.WorkerMessage
-	6, // 9: worker.WorkerService.Subscribe:output_type -> worker.OrchestratorMessage
-	9, // [9:10] is the sub-list for method output_type
-	8, // [8:9] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	3, // 2: worker.WorkerMessage.log:type_name -> worker.RunLog
+	4, // 3: worker.WorkerMessage.result:type_name -> worker.RunResult
+	6, // 4: worker.OrchestratorMessage.session:type_name -> worker.SessionReady
+	7, // 5: worker.OrchestratorMessage.dispatch:type_name -> worker.RunDispatch
+	8, // 6: worker.OrchestratorMessage.abort:type_name -> worker.RunAbort
+	0, // 7: worker.WorkerService.Subscribe:input_type -> worker.WorkerMessage
+	5, // 8: worker.WorkerService.Subscribe:output_type -> worker.OrchestratorMessage
+	8, // [8:9] is the sub-list for method output_type
+	7, // [7:8] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_proto_worker_proto_init() }
@@ -846,14 +784,11 @@ func file_proto_worker_proto_init() {
 	file_proto_worker_proto_msgTypes[0].OneofWrappers = []any{
 		(*WorkerMessage_Session)(nil),
 		(*WorkerMessage_Heartbeat)(nil),
-		(*WorkerMessage_RunEvent)(nil),
+		(*WorkerMessage_Log)(nil),
+		(*WorkerMessage_Result)(nil),
 	}
-	file_proto_worker_proto_msgTypes[3].OneofWrappers = []any{
-		(*RunEvent_Log)(nil),
-		(*RunEvent_Result)(nil),
-	}
-	file_proto_worker_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_worker_proto_msgTypes[6].OneofWrappers = []any{
+	file_proto_worker_proto_msgTypes[4].OneofWrappers = []any{}
+	file_proto_worker_proto_msgTypes[5].OneofWrappers = []any{
 		(*OrchestratorMessage_Session)(nil),
 		(*OrchestratorMessage_Dispatch)(nil),
 		(*OrchestratorMessage_Abort)(nil),
@@ -864,7 +799,7 @@ func file_proto_worker_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_worker_proto_rawDesc), len(file_proto_worker_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
