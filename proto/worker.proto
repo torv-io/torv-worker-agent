@@ -22,6 +22,8 @@ message WorkerMessage {
 message Session {
   string workspace_id = 1;
   string token = 2;
+  string compute_host_id = 3;
+  string reported_hostname = 4;
 }
 
 message Heartbeat {

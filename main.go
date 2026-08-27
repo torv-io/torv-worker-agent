@@ -51,11 +51,16 @@ func main() {
 		log.Fatalf("subscribe: %v", err)
 	}
 
+	hostname, _ := os.Hostname()
+	computeHostID := envOrDefault("COMPUTE_HOST_ID", hostname)
+
 	if err := stream.Send(&pb.WorkerMessage{
 		Type: &pb.WorkerMessage_Session{
 			Session: &pb.Session{
-				WorkspaceId: os.Getenv("WORKSPACE_ID"),
-				Token:       os.Getenv("WORKER_SECRET"),
+				WorkspaceId:      os.Getenv("WORKSPACE_ID"),
+				Token:            os.Getenv("WORKER_SECRET"),
+				ComputeHostId:    computeHostID,
+				ReportedHostname: hostname,
 			},
 		},
 	}); err != nil {
@@ -79,7 +84,6 @@ func main() {
 	}
 	defer dockerClient.Close()
 
-	hostname, _ := os.Hostname()
 	executor := &Executor{
 		docker:        dockerClient,
 		stream:        stream,
@@ -88,7 +92,7 @@ func main() {
 		network:       envOrDefault("DOCKER_NETWORK", "torv_worker_network"),
 		dataRoot:      envOrDefault("TORV_DATA_ROOT", "/data"),
 		workspaceID:   os.Getenv("WORKSPACE_ID"),
-		computeHostID: envOrDefault("COMPUTE_HOST_ID", hostname),
+		computeHostID: computeHostID,
 	}
 
 	go func() {
