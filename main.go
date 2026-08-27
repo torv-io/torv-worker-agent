@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,8 +55,9 @@ func main() {
 		log.Fatalf("subscribe: %v", err)
 	}
 
+	dataRoot := envOrDefault("TORV_DATA_ROOT", "/data")
 	hostname, _ := os.Hostname()
-	computeHostID := envOrDefault("COMPUTE_HOST_ID", hostname)
+	computeHostID := resolveComputeHostID(dataRoot)
 
 	if err := stream.Send(&pb.WorkerMessage{
 		Type: &pb.WorkerMessage_Session{
@@ -130,4 +135,27 @@ func envOrDefault(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// Stable machine identity across container restarts. Env override wins; else persist under TORV_DATA_ROOT.
+func resolveComputeHostID(dataRoot string) string {
+	if id := strings.TrimSpace(os.Getenv("COMPUTE_HOST_ID")); id != "" {
+		return id
+	}
+
+	path := filepath.Join(dataRoot, "compute_host_id")
+	if b, err := os.ReadFile(path); err == nil {
+		if id := strings.TrimSpace(string(b)); id != "" {
+			return id
+		}
+	}
+
+	b := make([]byte, 7)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("compute host id: %v", err)
+	}
+	id := hex.EncodeToString(b)
+	_ = os.MkdirAll(dataRoot, 0o755)
+	_ = os.WriteFile(path, []byte(id), 0o644)
+	return id
 }
