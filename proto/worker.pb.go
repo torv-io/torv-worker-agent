@@ -145,14 +145,12 @@ func (*WorkerMessage_Log) isWorkerMessage_Type() {}
 func (*WorkerMessage_Result) isWorkerMessage_Type() {}
 
 type Session struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	WorkspaceId      string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
-	Token            string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
-	ComputeHostId    string                 `protobuf:"bytes,3,opt,name=compute_host_id,json=computeHostId,proto3" json:"compute_host_id,omitempty"`
-	ReportedHostname string                 `protobuf:"bytes,4,opt,name=reported_hostname,json=reportedHostname,proto3" json:"reported_hostname,omitempty"`
-	ReportedOs       string                 `protobuf:"bytes,5,opt,name=reported_os,json=reportedOs,proto3" json:"reported_os,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	Token         string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	ComputeHostId string                 `protobuf:"bytes,3,opt,name=compute_host_id,json=computeHostId,proto3" json:"compute_host_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
@@ -202,20 +200,6 @@ func (x *Session) GetToken() string {
 func (x *Session) GetComputeHostId() string {
 	if x != nil {
 		return x.ComputeHostId
-	}
-	return ""
-}
-
-func (x *Session) GetReportedHostname() string {
-	if x != nil {
-		return x.ReportedHostname
-	}
-	return ""
-}
-
-func (x *Session) GetReportedOs() string {
-	if x != nil {
-		return x.ReportedOs
 	}
 	return ""
 }
@@ -714,14 +698,11 @@ const file_proto_worker_proto_rawDesc = "" +
 	"\theartbeat\x18\x03 \x01(\v2\x11.worker.HeartbeatH\x00R\theartbeat\x12\"\n" +
 	"\x03log\x18\x05 \x01(\v2\x0e.worker.RunLogH\x00R\x03log\x12+\n" +
 	"\x06result\x18\x06 \x01(\v2\x11.worker.RunResultH\x00R\x06resultB\x06\n" +
-	"\x04type\"\xb8\x01\n" +
+	"\x04type\"j\n" +
 	"\aSession\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12&\n" +
-	"\x0fcompute_host_id\x18\x03 \x01(\tR\rcomputeHostId\x12+\n" +
-	"\x11reported_hostname\x18\x04 \x01(\tR\x10reportedHostname\x12\x1f\n" +
-	"\vreported_os\x18\x05 \x01(\tR\n" +
-	"reportedOs\"#\n" +
+	"\x0fcompute_host_id\x18\x03 \x01(\tR\rcomputeHostId\"#\n" +
 	"\tHeartbeat\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\"O\n" +
 	"\x06RunLog\x12\x15\n" +

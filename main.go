@@ -56,16 +56,14 @@ func main() {
 	}
 
 	dataRoot := envOrDefault("TORV_DATA_ROOT", "/data")
-	hostname, _ := os.Hostname()
 	computeHostID := resolveComputeHostID(dataRoot)
 
 	if err := stream.Send(&pb.WorkerMessage{
 		Type: &pb.WorkerMessage_Session{
 			Session: &pb.Session{
-				WorkspaceId:      os.Getenv("WORKSPACE_ID"),
-				Token:            os.Getenv("WORKER_SECRET"),
-				ComputeHostId:    computeHostID,
-				ReportedHostname: hostname,
+				WorkspaceId:   os.Getenv("WORKSPACE_ID"),
+				Token:         os.Getenv("WORKER_SECRET"),
+				ComputeHostId: computeHostID,
 			},
 		},
 	}); err != nil {

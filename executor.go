@@ -96,13 +96,18 @@ func (e *Executor) runContainer(dispatch *pb.RunDispatch) (int, streamCaptured, 
 	runID := dispatch.GetRunId()
 	var captured streamCaptured
 
+	inputsURL := dispatch.GetInputsUrl()
 	env := []string{
 		"CODE_URL=" + dispatch.GetCodeUrl(),
 		"CONFIG_URL=" + dispatch.GetConfigUrl(),
 		"TORV_PARAMS_JSON=" + dispatch.GetParamsJson(),
-		"INPUTS_URL=" + dispatch.GetInputsUrl(),
 		"RUN_ID=" + runID,
 		"STAGE_ID=" + dispatch.GetStageId(),
+	}
+	if isArtifactInputs(inputsURL) {
+		env = append(env, "INPUTS_DIR=/torv-inputs")
+	} else if inputsURL != "" {
+		env = append(env, "INPUTS_URL="+inputsURL)
 	}
 
 	containerCfg := &container.Config{
@@ -129,6 +134,9 @@ func (e *Executor) runContainer(dispatch *pb.RunDispatch) (int, streamCaptured, 
 		return -1, captured, fmt.Errorf("create container: %w", err)
 	}
 	containerID := created.ID
+	if err := copyArtifactInputs(ctx, e.docker, containerID, e.dataRoot, e.workspaceID, inputsURL); err != nil {
+		return -1, captured, err
+	}
 	defer func() {
 		rmCtx, rmCancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer rmCancel()
